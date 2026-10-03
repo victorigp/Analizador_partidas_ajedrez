@@ -95,7 +95,8 @@ def verificar_y_configurar_sesion(forzar=False):
                             user_data_dir=user_data_dir,
                             executable_path=executable_path,
                             headless=True,
-                            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+                            timeout=10000
                         )
                         cookies = context.cookies("https://lichess.org")
                         lila2_cookie = next((c for c in cookies if c['name'] == 'lila2'), None)
