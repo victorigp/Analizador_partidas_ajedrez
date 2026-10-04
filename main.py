@@ -16,24 +16,27 @@ def main():
     if len(sys.argv) > 1:
         url = sys.argv[1]
     else:
-        print("\n¿Qué deseas hacer?")
-        print("1. Analizar nueva partida desde URL (Proceso completo)")
-        print("2. Crear estudio en Lichess usando Resultados.txt existente")
-        
-        opcion = input("\nElige una opción (1/2): ").strip()
-        if opcion == "2":
-            print("\n--- PASO 4: Creacion de Estudio en Lichess ---")
-            import crear_estudio
-            crear_estudio.crear_estudio_desde_txt()
-            return
-        elif opcion == "1":
-            url = input("Introduce la URL de la partida de Chess.com: ").strip()
-        else:
-            print("Opción inválida.")
-            return
+        portapapeles = ""
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            portapapeles = root.clipboard_get().strip()
+            root.update()
+            root.destroy()
+        except Exception as e:
+            pass
             
-    if not url:
-        print("URL inválida.")
+        if "chess.com/game" in portapapeles:
+            print(f"\n[Info] ¡Partida detectada en el portapapeles! Iniciando análisis automático...")
+            print(f"URL: {portapapeles}")
+            url = portapapeles
+                
+        if not url:
+            url = input("\nIntroduce la URL de la partida de Chess.com: ").strip()
+            
+    if not url or "chess.com/game" not in url:
+        print("\n[Error] URL inválida. Debe ser un enlace a una partida de Chess.com.")
         return
         
     # Limpiar parametros de la URL (ej: ?move=0)
@@ -50,8 +53,6 @@ def main():
         print("[Error] Fallo en la extraccion del PGN.")
         return
         
-    print("\n" + pgn)
-    
     # Añadir Paso 1 en Resultados.txt
     with open("Resultados.txt", "a", encoding="utf-8") as f:
         f.write("==================================================\n")

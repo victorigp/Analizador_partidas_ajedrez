@@ -49,14 +49,21 @@ GEMINI_MODEL=gemini-pro-latest
 
 La forma más sencilla de utilizar el programa en Windows es a través del archivo por lotes.
 
+**Método rápido (Auto-detección):**
+1. Copia la URL de la partida de Chess.com en tu navegador (`Ctrl + C`).
+2. Haz doble clic en el archivo **`EJECUTAR.bat`**.
+3. El programa detectará la URL en tu portapapeles automáticamente y te preguntará si deseas analizarla. ¡Pulsa Enter y listo!
+
+**Método manual:**
 1. Haz doble clic en el archivo **`EJECUTAR.bat`**.
 2. Pega la URL de la partida de Chess.com que deseas analizar (por ejemplo: `https://www.chess.com/game/computer/123456789`).
-3. El script hará todo el trabajo sucio en segundo plano:
-   - Extraerá el PGN.
-   - Creará el estudio en Lichess.
-   - Pedirá a Gemini que comente los errores.
-   - Actualizará el PGN con los comentarios en el estudio.
-   - Finalmente, se abrirá tu navegador predeterminado para que puedas disfrutar de tu estudio interactivo.
+
+Una vez introducida la URL, el script hará todo el trabajo sucio en segundo plano:
+- Extraerá el PGN.
+- Creará el estudio en Lichess.
+- Pedirá a Gemini que comente los errores.
+- Actualizará el PGN con los comentarios en el estudio.
+- Finalmente, se abrirá tu navegador predeterminado para que puedas disfrutar de tu estudio interactivo.
 
 > También puedes ejecutarlo directamente desde la consola:
 > ```bash
