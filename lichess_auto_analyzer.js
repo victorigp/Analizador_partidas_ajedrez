@@ -3,19 +3,19 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  Automatiza el clic de "Solicitar analisis" en Lichess cuando la URL incluye ?auto_analyze=1
-// @author       Antigravity
+// @author       Victor
 // @match        https://lichess.org/study/*
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
     // Si venimos de un reload tras terminar el analisis, activamos la pestaña
     if (sessionStorage.getItem('lichess_show_analysis') === '1') {
         sessionStorage.removeItem('lichess_show_analysis');
         console.log("[AutoAnalyzer] Recarga completada. Abriendo la pestaña de analisis...");
-        
+
         function openAnalysisTab() {
             const serverEvalTab = document.querySelector('button.serverEval');
             if (serverEvalTab) {
@@ -49,7 +49,7 @@
     // Funcion recursiva para gestionar todo el ciclo de analisis
     function handleAnalysisCycle() {
         // 1. Cerrar modales (como el de "Nuevo capitulo") si existen
-        const closeModals = document.querySelectorAll('.modal-close, button[data-icon="L"]'); 
+        const closeModals = document.querySelectorAll('.modal-close, button[data-icon="L"]');
         closeModals.forEach(btn => btn.click());
 
         // 2. Si todavia no hemos pulsado "Solicitar", lo buscamos
@@ -75,12 +75,12 @@
         if (analysisRequested) {
             const loader = document.querySelector('#acpl-chart-container-loader');
             const analysisDone = document.querySelector('count.data-count[data-count="✓"]');
-            
+
             if (loader && !loaderSeen) {
                 console.log("[AutoAnalyzer] Loader detectado. El analisis esta en progreso...");
                 loaderSeen = true;
             }
-            
+
             // Lichess añade un "check" (✓) al boton cuando el analisis termina. 
             // Esta es la forma 100% segura de saber que ha terminado.
             if (analysisDone) {

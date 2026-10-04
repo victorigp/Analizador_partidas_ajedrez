@@ -18,14 +18,15 @@ def _get_default_browser_path():
     return None
 
 def iniciar_navegador(p, headless=True):
-    # Opciones anti-deteccion de Cloudflare
+    # Opciones de configuracion del navegador
     launch_options = {
         "headless": headless,
         "ignore_default_args": ["--enable-automation"],
         "args": [
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
-            "--disable-infobars"
+            "--disable-infobars",
+            "--window-position=-32000,-32000"
         ]
     }
     

@@ -68,7 +68,7 @@ def _obtener_modelo_pro_mas_reciente(api_key, modelo_actual):
         print(f"[Aviso] No se pudieron comprobar los modelos: {e}")
         return modelo_actual.replace('models/', '')
 
-def analizar_pgn_con_ia(pgn_original, pgn_anotado):
+def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     env_vars = _cargar_env()
     api_key = env_vars.get("GEMINI_API_KEY")
     if not api_key:
@@ -85,8 +85,54 @@ def analizar_pgn_con_ia(pgn_original, pgn_anotado):
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(modelo_usar)
     
-    # Extraer el nombre del usuario del .env para el prompt
-    target_player = env_vars.get("CHESSCOM_PLAYER", "victorigp")
+    # Extraer nombres
+    white_name = "White"
+    black_name = "Black"
+    match_w = re.search(r'\[White\s+"([^"]+)"\]', pgn_original)
+    if match_w: white_name = match_w.group(1)
+    match_b = re.search(r'\[Black\s+"([^"]+)"\]', pgn_original)
+    if match_b: black_name = match_b.group(1)
+
+    # Eliminar ELOs de pgn_anotado
+    lineas_validas = []
+    for linea in pgn_anotado.splitlines(True):
+        if not re.match(r'^\s*\[(White|Black)Elo\s+"\d+"\]', linea):
+            lineas_validas.append(linea)
+    pgn_anotado = "".join(lineas_validas)
+    
+    # Eliminar las líneas en blanco adicionales
+    pgn_anotado = re.sub(r'(\r?\n)([ \t]*(\r?\n))+', r'\n', pgn_anotado).strip()
+    
+    # Construir bloque de estadísticas
+    stats_texto = ""
+    if stats:
+        stats_texto = f"""
+In the initial match summary, indicate this as follows:
+{white_name} ELO partida: XXXX <line break>{black_name} ELO partida: YYYY <line break><line break>
+Calculate the match ELO only based on the following metrics and replace the values of XXXX and YYYY.  
+Just put only the text and the Elo, without any justification.
+I know it is not possible to accurately calculate a specific "match ELO", but you have to try to estimate the match ELO of two players based on the values: 
+
+{white_name}:
+"""
+        def bstats(p):
+            l=[]
+            if 'Brillantes' in p: l.append(f"{p['Brillantes']} Brillantes")
+            if 'Excelentes' in p: l.append(f"{p['Excelentes']} Excelentes")
+            if 'Buenas' in p: l.append(f"{p['Buenas']} Buenas")
+            if 'De libro' in p: l.append(f"{p['De libro']} De libro")
+            if 'Imprecisiones' in p: l.append(f"{p['Imprecisiones']} Imprecisiones")
+            if 'Errores' in p: l.append(f"{p['Errores']} Errores")
+            if 'Graves' in p: l.append(f"{p['Graves']} Errores graves")
+            if 'Centipeones' in p: l.append(f"{p['Centipeones']} Pérdida promedio en centipeones")
+            if 'Precision' in p: l.append(f"{p['Precision']} Precisión")
+            if 'Apertura' in p: l.append(f"{p['Apertura']} Apertura")
+            if 'MedioJuego' in p: l.append(f"{p['MedioJuego']} Medio juego")
+            if 'Final' in p: l.append(f"{p['Final']} Final")
+            return "\n".join(l)
+        stats_texto += bstats(stats.get('white', {})) + f"\n\n{black_name}:\n" + bstats(stats.get('black', {}))
+
+    target_player = env_vars.get("CHESSCOM_PLAYER", "")
     
     prompt_base = f"""Role: Act as an Grandmaster (GM) of chess, skilled in both analysis and teaching.
 
@@ -147,7 +193,16 @@ Final Goal: Generate a high-quality, commented PGN useful for an intermediate pl
 
 Input Context: 
 {pgn_anotado}
+
+{stats_texto}
 """
+    
+    with open("Resultados.txt", "a", encoding="utf-8") as f:
+        f.write("==================================================\n")
+        f.write("PROMPT ENVIADO A LA IA\n")
+        f.write("==================================================\n")
+        f.write(prompt_base)
+        f.write("\n\n")
     
     modelo_actual = modelo_usar
     
@@ -157,6 +212,17 @@ Input Context:
             response = model.generate_content(prompt_base)
             texto_ia = response.text
             print("\n[Ok] Analisis de la IA recibido!\n")
+            
+            # Restaurar los ELO originales en el PGN devuelto por la IA
+            match_w_elo = re.search(r'\[WhiteElo\s+"([^"]+)"\]', pgn_original)
+            match_b_elo = re.search(r'\[BlackElo\s+"([^"]+)"\]', pgn_original)
+            
+            w_elo_str = f'[WhiteElo "{match_w_elo.group(1)}"]\n' if match_w_elo else ""
+            b_elo_str = f'[BlackElo "{match_b_elo.group(1)}"]\n' if match_b_elo else ""
+            
+            if w_elo_str or b_elo_str:
+                texto_ia = re.sub(r'(\[Event\s+"[^"]+"\])', r'\1\n' + w_elo_str + b_elo_str.strip(), texto_ia, count=1)
+                
             return texto_ia
         except Exception as e:
             error_str = str(e)

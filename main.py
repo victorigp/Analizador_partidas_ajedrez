@@ -100,7 +100,7 @@ def main():
     # PASO 2: Importacion a Lichess
     print("\n--- PASO 2: Importacion a Lichess ---")
     from lichess_api import importar_a_lichess
-    game_id, url_lichess, pgn_anotado = importar_a_lichess(pgn)
+    game_id, url_lichess, pgn_anotado, stats = importar_a_lichess(pgn)
     
     if not pgn_anotado:
         print("[Error] Fallo en el analisis de Lichess.")
@@ -119,7 +119,7 @@ def main():
     # PASO 3: IA de Google
     print("\n--- PASO 3: Analisis de IA de Google ---")
     from analisis_ia import analizar_pgn_con_ia
-    explicacion = analizar_pgn_con_ia(pgn, pgn_anotado)
+    explicacion = analizar_pgn_con_ia(pgn, pgn_anotado, stats)
     
     # Añadir Paso 3 en Resultados.txt
     if not explicacion or "Ocurrio un error" in explicacion or "Cancelado por el usuario" in explicacion or "requiere un API Key" in explicacion:

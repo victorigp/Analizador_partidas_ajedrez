@@ -19,7 +19,7 @@ def _cargar_env():
                     env_vars[key.strip()] = val.strip()
     return env_vars
 
-def extraer_datos_pgn(pgn_text, target_player):
+def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     blancas_match = re.search(r'\[White "(.*?)"\]', pgn_text)
     negras_match = re.search(r'\[Black "(.*?)"\]', pgn_text)
     resultado_match = re.search(r'\[Result "(.*?)"\]', pgn_text)
@@ -30,25 +30,55 @@ def extraer_datos_pgn(pgn_text, target_player):
     
     # Determinar si el target player es blancas o negras
     color_target = "Blancas"
+    is_white = True
     if target_player.lower() in negras.lower():
         color_target = "Negras"
+        is_white = False
     
     # Determinar victoria/derrota/empate
     victoria = False
     empate = False
-    if resultado == "1-0" and color_target == "Blancas":
+    if resultado == "1-0" and is_white:
         victoria = True
-    elif resultado == "0-1" and color_target == "Negras":
+    elif resultado == "0-1" and not is_white:
         victoria = True
     elif resultado == "1/2-1/2":
         empate = True
         
     if empate:
-        resultado_txt = "Empate"
+        resultado_txt = "DRAW"
     else:
-        resultado_txt = "Victoria" if victoria else "Derrota"
+        resultado_txt = "WIN" if victoria else "LOSE"
         
-    nombre_estudio = f"{blancas} vs {negras} - {resultado_txt}"
+    # Extraer ELO estimado por la IA desde contenido_completo
+    elo_est_match = re.search(rf'{target_player} ELO partida:\s*(\d+)', contenido_completo, re.IGNORECASE)
+    elo_str = f"ELO: {elo_est_match.group(1)}" if elo_est_match else "ELO: ?"
+    
+    # Extraer stats del target player desde contenido_completo
+    # Usamos re.DOTALL para buscar las estadisticas despues de que aparezca su nombre en el bloque de stats
+    precision = ""
+    prec_match = re.search(rf'{target_player}:.*?(\d+%)\s+Precisi.n', contenido_completo, re.DOTALL)
+    if prec_match:
+        precision = prec_match.group(1) + ", "
+        
+    brillantes_match = re.search(rf'{target_player}:.*?(\d+)\s+Brillantes', contenido_completo, re.DOTALL)
+    excelentes_match = re.search(rf'{target_player}:.*?(\d+)\s+Excelentes', contenido_completo, re.DOTALL)
+    buenas_match = re.search(rf'{target_player}:.*?(\d+)\s+Buenas', contenido_completo, re.DOTALL)
+    
+    stats_extra = []
+    if brillantes_match and brillantes_match.group(1) != "0":
+        stats_extra.append(f"{brillantes_match.group(1)} Brillantes")
+    if excelentes_match and excelentes_match.group(1) != "0":
+        stats_extra.append(f"{excelentes_match.group(1)} Excelentes")
+    if buenas_match and buenas_match.group(1) != "0":
+        stats_extra.append(f"{buenas_match.group(1)} Buenas")
+        
+    stats_str = ", ".join(stats_extra)
+    if stats_str:
+        stats_str = ", " + stats_str
+        
+    # Nombre final: WIN, 96%, ELO: 1950, 1 Brillantes, 1 Buenas
+    nombre_estudio = f"{resultado_txt}, {precision}{elo_str}{stats_str}"
     return nombre_estudio, color_target
 
 def _api_request(url, token, data=None, method=None):
@@ -90,7 +120,7 @@ def crear_estudio_desde_txt():
         
     # 2. Extraer info
     env_vars = _cargar_env()
-    target_player = env_vars.get("CHESSCOM_PLAYER", "victorigp")
+    target_player = env_vars.get("CHESSCOM_PLAYER", "")
     token = env_vars.get("LICHESS_TOKEN")
     lichess_cookie = env_vars.get("LICHESS_COOKIE")
     
@@ -98,7 +128,7 @@ def crear_estudio_desde_txt():
         print("[Error] No se ha encontrado LICHESS_TOKEN en .env")
         return
     
-    nombre_estudio, color_orientacion = extraer_datos_pgn(pgn_ia, target_player)
+    nombre_estudio, color_orientacion = extraer_datos_pgn(pgn_ia, target_player, contenido)
     val_orientacion = "white" if color_orientacion == "Blancas" else "black"
     
     print(f"[Info] Nombre del estudio: {nombre_estudio}")

@@ -4,18 +4,18 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 
 ## 🚀 Características
 
-- **Extracción automática:** Obtiene el PGN completo de partidas de Chess.com utilizando Playwright para saltar los popups y modales.
+- **Extracción automática:** Obtiene el PGN completo de partidas de Chess.com utilizando Playwright.
 - **Integración con Lichess:** Crea estudios privados, importa los PGNs y gestiona los capítulos automáticamente usando la API REST de Lichess.
-- **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini, detectando blunders (errores graves) y explicando *por qué* son malos y cuáles eran las mejores alternativas, todo en lenguaje natural.
-- **Automatización anti-bots:** Incluye un script de Tampermonkey para solicitar el análisis de servidor de Lichess de manera transparente y segura, imitando a un humano en tu navegador.
+- **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini para generar comentarios detallados y explicaciones didácticas en lenguaje natural.
+- **Automatización de análisis:** Incluye un script de Tampermonkey para solicitar el análisis de servidor de Lichess.
 - **Gestión de Sesión inteligente:** Extrae automáticamente las cookies necesarias (`lila2`) de tu navegador local (Chrome, Brave, Edge, etc.) para autenticarse en Lichess sin complicaciones.
 
 ## 📋 Requisitos Previos
 
 - **Python 3.10 o superior** instalado en tu sistema.
 - Una cuenta gratuita en **Lichess.org**.
-- Un Token API de Lichess (generado desde las preferencias de tu cuenta).
-- Una clave API gratuita de **Google Gemini** (generada desde Google AI Studio).
+- Un Token API de Lichess (debes crearlo desde las preferencias de tu cuenta de Lichess).
+- Una clave API gratuita de **Google Gemini** (debes crearla desde Google AI Studio).
 
 ## 🛠️ Instalación
 
@@ -31,10 +31,10 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 4. **Instalación del script de auto-análisis (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
    - Crea un nuevo script, copia el contenido del archivo `lichess_auto_analyzer.js` que viene en el proyecto, y guárdalo. Esto permitirá que el análisis de la computadora en Lichess arranque automáticamente al finalizar la exportación.
-5. **Instalación del Botón Flotante en Chess.com (Opcional):**
+5. **Instalación del Botón Flotante en Chess.com (Opcional pero recomendado):**
    - El proyecto incluye una carpeta llamada `Boton flotante` que te permite integrar el analizador directamente en la interfaz de Chess.com.
    - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir tu analizador cuando detecte el protocolo `ajedrez://`.
-   - Crea un nuevo script en **Tampermonkey**, pega el contenido de `Boton flotante/chess_button_analyzer.js` y guárdalo.
+   - Importa en **Tampermonkey** el script de `Boton flotante/chess_button_analyzer.js`.
    - A partir de ahora, cuando estés en una partida de Chess.com, aparecerá un botón verde flotante de "🤖 Analizar con IA" que lanzará el script en segundo plano automáticamente.
 
 ## ⚙️ Configuración (.env)
@@ -52,12 +52,14 @@ GEMINI_MODEL=gemini-pro-latest
 
 ## 🎮 Uso
 
-La forma más sencilla de utilizar el programa en Windows es a través del archivo por lotes.
+La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com (ver instrucciones de instalación arriba). Una vez instalado, solo tienes que hacer clic en el botón verde "🤖 Analizar con IA" al terminar una partida.
 
-**Método rápido (Auto-detección):**
+Si no deseas instalar el botón flotante, puedes usar el archivo por lotes en Windows:
+
+**Método rápido con script (Auto-detección):**
 1. Copia la URL de la partida de Chess.com en tu navegador (`Ctrl + C`).
 2. Haz doble clic en el archivo **`EJECUTAR.bat`**.
-3. El programa detectará la URL en tu portapapeles automáticamente y te preguntará si deseas analizarla. ¡Pulsa Enter y listo!
+3. El programa detectará la URL en tu portapapeles automáticamente y te preguntará si deseas analizarla.
 
 **Método manual:**
 1. Haz doble clic en el archivo **`EJECUTAR.bat`**.
@@ -84,8 +86,11 @@ Una vez introducida la URL, el script hará todo el trabajo sucio en segundo pla
 - `lichess_api.py`: Comunicación con la API REST de Lichess.
 - `analisis_ia.py`: Conexión con Google Gemini para generar los comentarios en español.
 - `crear_estudio.py`: Lógica para estructurar el estudio en Lichess con los comentarios.
+- `browser_utils.py`: Utilidad para inicializar el navegador Playwright correcto.
 - `login_manual.py`: Utilidad para extraer cookies de sesión de los navegadores locales.
+- `EJECUTAR.bat`: Script de Windows para lanzar el programa rápidamente.
 - `lichess_auto_analyzer.js`: Script de Tampermonkey para la automatización en cliente.
+- `Boton flotante/`: Directorio con los scripts necesarios para integrar el botón en la web de Chess.com.
 
 ## 📜 Licencia
 

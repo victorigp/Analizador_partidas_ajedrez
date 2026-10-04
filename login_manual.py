@@ -64,7 +64,7 @@ def verificar_y_configurar_sesion(forzar=False):
     print("\n==================================================")
     print("🔑 CONFIGURACION DE SESION LICHESS")
     print("==================================================")
-    print("Para analizar partidas en Lichess burlando el sistema anti-bots,")
+    print("Para analizar partidas en Lichess,")
     print("necesitamos tu cookie de sesion ('lila2').")
     print("\nPuedes configurar esto de dos formas:")
     print(" 1) Manualmente: Pegando LICHESS_COOKIE=... en el archivo .env")
