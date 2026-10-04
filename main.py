@@ -15,6 +15,19 @@ def main():
     url = ""
     if len(sys.argv) > 1:
         url = sys.argv[1]
+        # Limpiar el prefijo del protocolo si viene del navegador
+        if url.startswith("ajedrez://"):
+            url = url[len("ajedrez://"):]
+            # A veces los navegadores añaden una barra al final
+            if url.endswith("/"):
+                url = url[:-1]
+                
+            # A veces los navegadores al procesar un doble protocolo (ajedrez://https://)
+            # se comen los dos puntos y dejan https//. Lo arreglamos:
+            if url.startswith("https//"):
+                url = "https://" + url[7:]
+            elif url.startswith("http//"):
+                url = "http://" + url[6:]
     else:
         portapapeles = ""
         try:
@@ -28,13 +41,36 @@ def main():
             pass
             
         if "chess.com/game" in portapapeles:
-            print(f"\n[Info] ¡Partida detectada en el portapapeles! Iniciando análisis automático...")
-            print(f"URL: {portapapeles}")
-            url = portapapeles
-                
+            import re
+            match = re.search(r'(?:https?[:/]+)?(?:www\.)?chess\.com/game/\S+', portapapeles)
+            if match:
+                url_limpia = match.group(0)
+                # Arreglar protocolos deformados o inexistentes
+                if url_limpia.startswith("https//"):
+                    url_limpia = "https://" + url_limpia[7:]
+                elif url_limpia.startswith("http//"):
+                    url_limpia = "http://" + url_limpia[6:]
+                elif not url_limpia.startswith("http"):
+                    url_limpia = "https://" + url_limpia
+                    
+                print(f"\n[Info] ¡Partida detectada en el portapapeles! Iniciando análisis automático...")
+                print(f"URL: {url_limpia}")
+                url = url_limpia
         if not url:
             url = input("\nIntroduce la URL de la partida de Chess.com: ").strip()
             
+    if url:
+        import re
+        match = re.search(r'(?:https?[:/]+)?(?:www\.)?chess\.com/game/\S+', url)
+        if match:
+            url = match.group(0)
+            if url.startswith("https//"):
+                url = "https://" + url[7:]
+            elif url.startswith("http//"):
+                url = "http://" + url[6:]
+            elif not url.startswith("http"):
+                url = "https://" + url
+                
     if not url or "chess.com/game" not in url:
         print("\n[Error] URL inválida. Debe ser un enlace a una partida de Chess.com.")
         return

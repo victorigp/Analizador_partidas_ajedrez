@@ -31,6 +31,11 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 4. **Instalación del script de auto-análisis (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
    - Crea un nuevo script, copia el contenido del archivo `lichess_auto_analyzer.js` que viene en el proyecto, y guárdalo. Esto permitirá que el análisis de la computadora en Lichess arranque automáticamente al finalizar la exportación.
+5. **Instalación del Botón Flotante en Chess.com (Opcional):**
+   - El proyecto incluye una carpeta llamada `Boton flotante` que te permite integrar el analizador directamente en la interfaz de Chess.com.
+   - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir tu analizador cuando detecte el protocolo `ajedrez://`.
+   - Crea un nuevo script en **Tampermonkey**, pega el contenido de `Boton flotante/chess_button_analyzer.js` y guárdalo.
+   - A partir de ahora, cuando estés en una partida de Chess.com, aparecerá un botón verde flotante de "🤖 Analizar con IA" que lanzará el script en segundo plano automáticamente.
 
 ## ⚙️ Configuración (.env)
 
