@@ -114,7 +114,7 @@ def importar_a_lichess(pgn, reintentos=1):
                 try:
                     # Usamos el contexto de Playwright para hacer una peticion GET HTTP a la API de exportacion
                     # Esto mantiene tus cookies y evita el problema de las descargas en el navegador
-                    response = page.request.get(f"https://lichess.org/game/export/{id_partida}?evals=true&clocks=false", headers={'Accept': 'application/x-chess-pgn'})
+                    response = page.request.get(f"https://lichess.org/game/export/{id_partida}?evals=true&clocks=false&literate=true", headers={'Accept': 'application/x-chess-pgn'})
                     if response.ok:
                         pgn_texto = response.text()
                         if "[%eval" in pgn_texto or "Blunder" in pgn_texto or "Mistake" in pgn_texto or "Inaccuracy" in pgn_texto:
@@ -147,8 +147,23 @@ def importar_a_lichess(pgn, reintentos=1):
                         pass
 
                     body = re.sub(r'\[.*?\]\r?\n', '', pgn).strip()
-                    clean_pgn = re.sub(r'\{[^}]*\}', '', body)
-                    raw_moves = [m for m in clean_pgn.split() if m and not re.match(r'^\d+\.+', m) and not m.startswith('$') and m not in ('1-0', '0-1', '1/2-1/2', '*')]
+                    # 1. Eliminar variaciones (anidadas)
+                    temp = body
+                    while '(' in temp:
+                        temp = re.sub(r'\([^()]*\)', '', temp)
+                    body_no_vars = temp
+                    
+                    # 2. Extraer evaluaciones y eliminar el resto del texto en los comentarios
+                    def replace_comment(match):
+                        m = re.search(r'\[%eval\s+([^\]]+)\]', match.group(0))
+                        if m: return f" [%eval {m.group(1)}] "
+                        return " "
+                    
+                    body_clean = re.sub(r'\{[^}]*\}', replace_comment, body_no_vars)
+                    
+                    # 3. Obtener raw_moves sin los tags de evaluación
+                    body_moves_only = re.sub(r'\[%eval\s+[^\]]*\]', '', body_clean)
+                    raw_moves = [m for m in body_moves_only.split() if m and not re.match(r'^\d+\.+', m) and not m.startswith('$') and m not in ('1-0', '0-1', '1/2-1/2', '*')]
                     
                     is_book_array = [False] * len(raw_moves)
                     for i in range(1, len(raw_moves) + 1):
@@ -165,7 +180,7 @@ def importar_a_lichess(pgn, reintentos=1):
                                 custom[c]['De libro'] += 1
                                 is_book_array[i-1] = True
 
-                    tokens = re.findall(r'(\d+\.\.\.|\d+\.|[a-zA-Z0-9\+\#\-\=\?\!]+|\{\s*\[%eval[^\]]*\]\s*\})', body)
+                    tokens = re.findall(r'(\d+\.\.\.|\d+\.|[a-zA-Z0-9\+\#\-\=\?\!]+|\[%eval\s+[^\]]*\])', body_clean)
                     current_color = 'white'
                     prev_eval = 0.0
                     last_move_was_bad = False
@@ -176,8 +191,8 @@ def importar_a_lichess(pgn, reintentos=1):
                             current_color = 'white'
                         elif re.match(r'^\d+\.\.\.$', token):
                             current_color = 'black'
-                        elif token.startswith('{ [%eval'):
-                            match = re.search(r'\[%eval ([^\]]+)\]', token)
+                        elif token.startswith('[%eval'):
+                            match = re.search(r'\[%eval\s+([^\]]+)\]', token)
                             if match:
                                 val_str = match.group(1).strip()
                                 if val_str.startswith('#'):

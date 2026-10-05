@@ -22,7 +22,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 1. Clona o descarga este repositorio en tu ordenador.
 2. Abre una terminal en la carpeta del proyecto e instala las dependencias de Python:
    ```bash
-   pip install playwright google-generativeai requests
+   pip install playwright google-generativeai
    ```
 3. Instala los navegadores necesarios para Playwright:
    ```bash
@@ -42,6 +42,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 El script generará automáticamente un archivo `.env` la primera vez que lo ejecutes si no lo tienes, pidiéndote los datos. Sin embargo, puedes crearlo manualmente en la raíz del proyecto con esta estructura:
 
 ```env
+CHESSCOM_PLAYER=tu_usuario_en_chess.com
 LICHESS_TOKEN=tu_token_api_de_lichess_aqui
 LICHESS_USERNAME=tu_usuario_o_email
 LICHESS_PASSWORD=tu_contraseña

@@ -31,18 +31,18 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     # Determinar si el target player es blancas o negras
     color_target = "Blancas"
     is_white = True
-    if target_player.lower() in negras.lower():
+    if target_player and target_player.lower() in negras.lower():
         color_target = "Negras"
         is_white = False
     
     # Determinar victoria/derrota/empate
     victoria = False
     empate = False
-    if resultado == "1-0" and is_white:
+    if "1-0" in resultado and is_white:
         victoria = True
-    elif resultado == "0-1" and not is_white:
+    elif "0-1" in resultado and not is_white:
         victoria = True
-    elif resultado == "1/2-1/2":
+    elif "1/2" in resultado:
         empate = True
         
     if empate:
