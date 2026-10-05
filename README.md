@@ -48,7 +48,9 @@ LICHESS_USERNAME=tu_usuario_o_email
 LICHESS_PASSWORD=tu_contraseña
 LICHESS_COOKIE=tu_cookie_lila2_aqui (Opcional, el script puede extraerla de tu navegador)
 GEMINI_API_KEY=tu_clave_api_de_gemini
-GEMINI_MODEL=gemini-pro-latest
+GEMINI_API_KEY_1=tu_clave_api_alternativa_1 (Opcional, se usará si la principal agota su cuota)
+GEMINI_API_KEY_2=tu_clave_api_alternativa_2 (Opcional, puedes añadir más API KEY si lo deseas)
+GEMINI_MODEL=gemini-3.1-pro-preview
 ```
 
 ## 🎮 Uso

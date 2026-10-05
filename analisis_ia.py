@@ -70,20 +70,25 @@ def _obtener_modelo_pro_mas_reciente(api_key, modelo_actual):
 
 def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     env_vars = _cargar_env()
-    api_key = env_vars.get("GEMINI_API_KEY")
-    if not api_key:
-        print("[Advertencia] No se encontro la variable de entorno GEMINI_API_KEY en el archivo .env.")
+    api_keys = []
+    for k, v in env_vars.items():
+        if re.match(r'^GEMINI_API_KEY(_\d+)?$', k):
+            api_keys.append((k, v))
+    api_keys.sort(key=lambda x: x[0])
+    
+    if not api_keys:
+        print("[Advertencia] No se encontro ninguna variable GEMINI_API_KEY en el archivo .env.")
         print("Por favor, anadela para activar los comentarios de la IA.")
         return "El analisis de IA requiere un API Key de Google Gemini."
+
+    indice_key_actual = 0
+    api_key_name, api_key = api_keys[indice_key_actual]
 
     # Determinar modelo
     modelo_configurado = env_vars.get("GEMINI_MODEL", "gemini-1.5-pro")
     modelo_usar = _obtener_modelo_pro_mas_reciente(api_key, modelo_configurado)
 
     print(f"\n[Google IA] Enviando PGN a {modelo_usar} para evaluacion de Gran Maestro...")
-    
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(modelo_usar)
     
     # Extraer nombres
     white_name = "White"
@@ -202,6 +207,14 @@ Input Context:
     
     while True:
         try:
+            import os
+            os.environ["GEMINI_API_KEY"] = api_key
+            genai.configure(api_key=api_key)
+            # Limpiar la cache interna del SDK para forzar que use la nueva key
+            from google.generativeai import client as genai_client
+            if hasattr(genai_client, '_client_manager'):
+                genai_client._client_manager.clients.clear()
+                
             model = genai.GenerativeModel(modelo_actual)
             response = model.generate_content(prompt_base)
             texto_ia = response.text
@@ -221,7 +234,21 @@ Input Context:
         except Exception as e:
             error_str = str(e)
             if "429" in error_str and "exceeded your current quota" in error_str:
-                print(f"\n[Error] al contactar con Gemini ({modelo_actual}): 429 Has superado tu cuota actual para las peticiones a la IA de Google.")
+                tiempo_match = re.search(r'retry in (\d+h)?(\d+m)?', error_str)
+                tiempo_str = ""
+                if tiempo_match:
+                    h = tiempo_match.group(1) or ""
+                    m = tiempo_match.group(2) or ""
+                    if h or m:
+                        tiempo_str = f" Puedes reintentarlo en {h} {m}."
+                
+                print(f"\n[Error] al contactar con Gemini ({modelo_actual}): 429 Has superado tu cuota actual para las peticiones a la IA de Google.{tiempo_str}")
+                
+                indice_key_actual += 1
+                if indice_key_actual < len(api_keys):
+                    api_key_name, api_key = api_keys[indice_key_actual]
+                    print(f"[Aviso] Cambiando automáticamente a la clave alternativa: {api_key_name}...")
+                    continue
             else:
                 print(f"\n[Error] al contactar con Gemini ({modelo_actual}): {e}")
             
@@ -256,7 +283,10 @@ Input Context:
                                 guardar = input(f"¿Quieres guardar '{modelo_actual}' como tu modelo predeterminado en .env? (S/N): ").strip().lower()
                                 if guardar == 's':
                                     _guardar_env('GEMINI_MODEL', modelo_actual)
-                                print(f"\n[Google IA] Reintentando con {modelo_actual}...")
+                                
+                                indice_key_actual = 0
+                                api_key_name, api_key = api_keys[indice_key_actual]
+                                print(f"\n[Google IA] Reintentando con {modelo_actual} usando {api_key_name}...")
                                 continue
                             else:
                                 print("[Aviso] Opcion invalida. Saliendo.")
