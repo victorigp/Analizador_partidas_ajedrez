@@ -60,25 +60,8 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     prec_match = re.search(rf'{target_player}:.*?(\d+%)\s+Precisi.n', contenido_completo, re.DOTALL)
     if prec_match:
         precision = prec_match.group(1) + ", "
-        
-    brillantes_match = re.search(rf'{target_player}:.*?(\d+)\s+Brillantes', contenido_completo, re.DOTALL)
-    excelentes_match = re.search(rf'{target_player}:.*?(\d+)\s+Excelentes', contenido_completo, re.DOTALL)
-    buenas_match = re.search(rf'{target_player}:.*?(\d+)\s+Buenas', contenido_completo, re.DOTALL)
-    
-    stats_extra = []
-    if brillantes_match and brillantes_match.group(1) != "0":
-        stats_extra.append(f"{brillantes_match.group(1)} Brillantes")
-    if excelentes_match and excelentes_match.group(1) != "0":
-        stats_extra.append(f"{excelentes_match.group(1)} Excelentes")
-    if buenas_match and buenas_match.group(1) != "0":
-        stats_extra.append(f"{buenas_match.group(1)} Buenas")
-        
-    stats_str = ", ".join(stats_extra)
-    if stats_str:
-        stats_str = ", " + stats_str
-        
-    # Nombre final: WIN, 96%, ELO: 1950, 1 Brillantes, 1 Buenas
-    nombre_estudio = f"{resultado_txt}, {precision}{elo_str}{stats_str}"
+    # Nombre final: WIN, 96%, ELO: 1950
+    nombre_estudio = f"{resultado_txt}, {precision}{elo_str}"
     return nombre_estudio, color_target
 
 def _api_request(url, token, data=None, method=None):

@@ -127,110 +127,7 @@ def importar_a_lichess(pgn, reintentos=1):
             stats = {}
             if pgn_generado:
                 print("   Extrayendo estadísticas y calculando métricas adicionales...", end="", flush=True)
-                
-                # 1. Calcular Brillantes, Excelentes, Buenas, Libro internamente leyendo los [%eval] del PGN
-                import re
-                def calcular_stats_custom(pgn):
-                    custom = {'white': {'Brillantes': 0, 'Excelentes': 0, 'Buenas': 0, 'De libro': 0}, 
-                              'black': {'Brillantes': 0, 'Excelentes': 0, 'Buenas': 0, 'De libro': 0}}
-                    
-                    import urllib.request
-                    import json
-                    eco_set = set()
-                    try:
-                        req = urllib.request.Request('https://raw.githubusercontent.com/victorigp/Lichess_Detailed_Moves_2/main/data/eco.json')
-                        resp = urllib.request.urlopen(req, timeout=5)
-                        eco_codes = json.loads(resp.read().decode('utf-8'))
-                        for eco in eco_codes:
-                            eco_set.add(eco.get('moves', '').strip().lower())
-                    except:
-                        pass
-
-                    body = re.sub(r'\[.*?\]\r?\n', '', pgn).strip()
-                    # 1. Eliminar variaciones (anidadas)
-                    temp = body
-                    while '(' in temp:
-                        temp = re.sub(r'\([^()]*\)', '', temp)
-                    body_no_vars = temp
-                    
-                    # 2. Extraer evaluaciones y eliminar el resto del texto en los comentarios
-                    def replace_comment(match):
-                        m = re.search(r'\[%eval\s+([^\]]+)\]', match.group(0))
-                        if m: return f" [%eval {m.group(1)}] "
-                        return " "
-                    
-                    body_clean = re.sub(r'\{[^}]*\}', replace_comment, body_no_vars)
-                    
-                    # 3. Obtener raw_moves sin los tags de evaluación
-                    body_moves_only = re.sub(r'\[%eval\s+[^\]]*\]', '', body_clean)
-                    raw_moves = [m for m in body_moves_only.split() if m and not re.match(r'^\d+\.+', m) and not m.startswith('$') and m not in ('1-0', '0-1', '1/2-1/2', '*')]
-                    
-                    is_book_array = [False] * len(raw_moves)
-                    for i in range(1, len(raw_moves) + 1):
-                        seq = ""
-                        for idx, m in enumerate(raw_moves[:i]):
-                            clean_m = re.sub(r'[!?#+]', '', m)
-                            if idx % 2 == 0: seq += f"{idx//2 + 1}. {clean_m} "
-                            else: seq += f"{clean_m} "
-                        seq = seq.strip().lower()
-                        
-                        if seq in eco_set:
-                            if not raw_moves[i-1].endswith('?'):
-                                c = 'white' if (i - 1) % 2 == 0 else 'black'
-                                custom[c]['De libro'] += 1
-                                is_book_array[i-1] = True
-
-                    tokens = re.findall(r'(\d+\.\.\.|\d+\.|[a-zA-Z0-9\+\#\-\=\?\!]+|\[%eval\s+[^\]]*\])', body_clean)
-                    current_color = 'white'
-                    prev_eval = 0.0
-                    last_move_was_bad = False
-                    move_index = -1
-                    
-                    for token in tokens:
-                        if re.match(r'^\d+\.$', token):
-                            current_color = 'white'
-                        elif re.match(r'^\d+\.\.\.$', token):
-                            current_color = 'black'
-                        elif token.startswith('[%eval'):
-                            match = re.search(r'\[%eval\s+([^\]]+)\]', token)
-                            if match:
-                                val_str = match.group(1).strip()
-                                if val_str.startswith('#'):
-                                    val = 100.0 if not val_str.startswith('#-') else -100.0
-                                else:
-                                    try: val = float(val_str)
-                                    except: val = 0.0
-                                delta = val - prev_eval
-                                
-                                is_book = False
-                                is_checkmate = False
-                                if move_index >= 0 and move_index < len(raw_moves):
-                                    is_book = is_book_array[move_index]
-                                    is_checkmate = raw_moves[move_index].endswith('#')
-                                    
-                                if not last_move_was_bad and not is_book and not is_checkmate:
-                                    if current_color == 'white':
-                                        if delta >= 2.0: custom['white']['Brillantes'] += 1
-                                        elif delta >= 1.0: custom['white']['Excelentes'] += 1
-                                        elif delta >= 0.6: custom['white']['Buenas'] += 1
-                                    else:
-                                        if delta <= -2.0: custom['black']['Brillantes'] += 1
-                                        elif delta <= -1.0: custom['black']['Excelentes'] += 1
-                                        elif delta <= -0.6: custom['black']['Buenas'] += 1
-                                        
-                                if current_color == 'white': current_color = 'black'
-                                else: current_color = 'white'
-                                prev_eval = val
-                        else:
-                            if token not in ('1-0', '0-1', '1/2-1/2', '*'):
-                                move_index += 1
-                            if token.endswith('?') or token.endswith('??') or token.endswith('?!'):
-                                last_move_was_bad = True
-                            else:
-                                last_move_was_bad = False
-                    return custom
-                
-                custom_stats = calcular_stats_custom(pgn_generado)
+                pass
 
                 try:
                     # Forzar tamaño de escritorio para que Lichess no oculte las pestañas en layout móvil
@@ -274,10 +171,6 @@ def importar_a_lichess(pgn, reintentos=1):
                                     }
                                 }
                             };
-                            extractMatch('brillante', 'Brillantes');
-                            extractMatch('excelente', 'Excelentes');
-                            extractMatch('buenas', 'Buenas');
-                            extractMatch('libro', 'De libro');
                             extractMatch('imprecisi', 'Imprecisiones');
                             extractMatch('grave', 'Graves');
                             extractMatch('centipeon', 'Centipeones');
@@ -322,12 +215,6 @@ def importar_a_lichess(pgn, reintentos=1):
             final_stats = {}
             for color in ['white', 'black']:
                 final_stats[color] = {}
-                # 1. Añadir las custom primero
-                if custom_stats.get(color):
-                    for k in ['Brillantes', 'Excelentes', 'Buenas', 'De libro']:
-                        if k in custom_stats[color]:
-                            final_stats[color][k] = str(custom_stats[color][k])
-                            
                 # 2. Añadir las nativas (si existen)
                 if stats.get(color):
                     for k in ['Precision', 'Imprecisiones', 'Errores', 'Graves', 'Centipeones', 'Apertura', 'MedioJuego', 'Final']:
