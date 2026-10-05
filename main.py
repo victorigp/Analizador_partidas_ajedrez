@@ -1,4 +1,33 @@
 import sys
+import builtins
+import os
+
+# Habilitar secuencias ANSI en la consola de Windows
+os.system("")
+
+# Guardamos las funciones originales
+original_print = builtins.print
+original_input = builtins.input
+
+def custom_print(*args, **kwargs):
+    # Solo aplicamos colores al texto sin afectar los argumentos adicionales de print (ej. end="")
+    if args and isinstance(args[0], str):
+        text = str(args[0])
+        # Errores y Avisos en Rojo
+        if "[Error]" in text or "[Aviso]" in text or "[Advertencia]" in text or "[Parada]" in text:
+            args = (f"\033[91m{text}\033[0m",) + args[1:]
+        # Opciones de menu en Verde
+        elif "1. Utilizar otro modelo de IA" in text or "2. Salir" in text or "¿Qué deseas hacer?" in text:
+            args = (f"\033[92m{text}\033[0m",) + args[1:]
+    original_print(*args, **kwargs)
+
+def custom_input(prompt=""):
+    # Todos los prompts donde el usuario deba introducir algo serán Verdes
+    return original_input(f"\033[92m{prompt}\033[0m")
+
+builtins.print = custom_print
+builtins.input = custom_input
+
 sys.stdout.reconfigure(encoding='utf-8')
 from extraer_pgn import extraer_pgn_chesscom
 

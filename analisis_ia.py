@@ -220,43 +220,60 @@ Input Context:
             return texto_ia
         except Exception as e:
             error_str = str(e)
-            print(f"\n[Error] al contactar con Gemini ({modelo_actual}): {e}")
+            if "429" in error_str and "exceeded your current quota" in error_str:
+                print(f"\n[Error] al contactar con Gemini ({modelo_actual}): 429 Has superado tu cuota actual para las peticiones a la IA de Google.")
+            else:
+                print(f"\n[Error] al contactar con Gemini ({modelo_actual}): {e}")
             
-            print("\n[Aviso] Se ha producido un error con el modelo seleccionado.")
-            print("Consultando otros modelos disponibles...")
-            try:
-                modelos = []
-                for m in genai.list_models():
-                    # Filtramos modelos de texto (excluyendo vision si no hace falta)
-                    if 'generateContent' in m.supported_generation_methods and 'vision' not in m.name.lower():
-                        modelos.append(m.name.replace('models/', ''))
+            print("\n¿Qué deseas hacer?")
+            print("1. Utilizar otro modelo de IA")
+            print("2. Salir")
+            opcion_error = input("Selecciona una opción (1/2): ").strip()
+            
+            if opcion_error == '2':
+                import sys
+                print("[Aviso] Saliendo del script...")
+                sys.exit(0)
+            elif opcion_error == '1':
+                print("Consultando otros modelos disponibles...")
+                try:
+                    modelos = []
+                    for m in genai.list_models():
+                        # Filtramos modelos de texto (excluyendo vision si no hace falta)
+                        if 'generateContent' in m.supported_generation_methods and 'vision' not in m.name.lower():
+                            modelos.append(m.name.replace('models/', ''))
+                            
+                    if modelos:
+                        print("\nModelos alternativos disponibles:")
+                        for i, m_name in enumerate(modelos):
+                            print(f"  {i + 1}. {m_name}")
                         
-                if modelos:
-                    print("\nModelos alternativos disponibles:")
-                    for i, m_name in enumerate(modelos):
-                        print(f"  {i + 1}. {m_name}")
-                    
-                    opcion = input(f"\nIntroduce el numero del modelo a utilizar (1-{len(modelos)}) o pulsa Enter para salir: ").strip()
-                    if opcion.isdigit():
-                        idx = int(opcion) - 1
-                        if 0 <= idx < len(modelos):
-                            modelo_actual = modelos[idx]
-                            guardar = input(f"¿Quieres guardar '{modelo_actual}' como tu modelo predeterminado en .env? (S/N): ").strip().lower()
-                            if guardar == 's':
-                                _guardar_env('GEMINI_MODEL', modelo_actual)
-                            print(f"\n[Google IA] Reintentando con {modelo_actual}...")
-                            continue
+                        opcion = input(f"\nIntroduce el numero del modelo a utilizar (1-{len(modelos)}) o pulsa Enter para salir: ").strip()
+                        if opcion.isdigit():
+                            idx = int(opcion) - 1
+                            if 0 <= idx < len(modelos):
+                                modelo_actual = modelos[idx]
+                                guardar = input(f"¿Quieres guardar '{modelo_actual}' como tu modelo predeterminado en .env? (S/N): ").strip().lower()
+                                if guardar == 's':
+                                    _guardar_env('GEMINI_MODEL', modelo_actual)
+                                print(f"\n[Google IA] Reintentando con {modelo_actual}...")
+                                continue
+                            else:
+                                print("[Aviso] Opcion invalida. Saliendo.")
+                                import sys; sys.exit(0)
                         else:
-                            print("[Aviso] Opcion invalida. Cancelando.")
-                            return "Cancelado por el usuario."
+                            print("[Aviso] Cancelado por el usuario. Saliendo.")
+                            import sys; sys.exit(0)
                     else:
-                        print("[Aviso] Cancelado por el usuario.")
-                        return "Cancelado por el usuario."
-                else:
-                    print("[Aviso] No se encontraron otros modelos disponibles en tu cuenta.")
-                    return "Ocurrio un error en el analisis de la IA o se agoto la cuota."
-            except Exception as ex:
-                print(f"[Error] Fallo al obtener la lista de modelos: {ex}")
-                return "Ocurrio un error en el analisis de la IA o se agoto la cuota."
+                        print("[Aviso] No se encontraron otros modelos disponibles en tu cuenta.")
+                        import sys; sys.exit(0)
+                except Exception as ex:
+                    print(f"[Error] Fallo al obtener la lista de modelos: {ex}")
+                    import sys; sys.exit(0)
+            else:
+                import sys
+                print("[Aviso] Opción inválida. Saliendo.")
+                sys.exit(0)
+
                 
     return "Ocurrio un error en el analisis de la IA o se agoto la cuota."

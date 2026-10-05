@@ -40,7 +40,6 @@ def extraer_pgn_chesscom(url):
             print(patron_pgn.group(0))
             pgn = patron_pgn.group(0)
         else:
-            print("[Aviso] Buscando en el boton de compartir...")
             try:
                 # Clic forzado en el botón de compartir ignorando otros elementos encima
                 page.locator('button[aria-label="Share"]').click(force=True, timeout=3000)
