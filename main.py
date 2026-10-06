@@ -126,16 +126,17 @@ def main():
         f.write(pgn)
         f.write("\n\n")
     
-    # PASO 2: Importacion a Lichess
-    print("\n--- PASO 2: Importacion a Lichess ---")
-    from lichess_api import importar_a_lichess
-    game_id, url_lichess, pgn_anotado, stats = importar_a_lichess(pgn)
+    # PASO 2: Análisis Local
+    print("\n--- PASO 2: Análisis Local con Stockfish ---")
+    from local_analysis import analyze_pgn
+    pgn_anotado = analyze_pgn(pgn)
+    stats = None # Las estadísticas de Lichess ya no se usan
     
     if not pgn_anotado:
-        print("[Error] Fallo en el analisis de Lichess.")
+        print("[Error] Fallo en el analisis local.")
         return
         
-    print("\n[PGN Anotado recuperado con exito]")
+    print("\n[PGN Anotado generado con exito]")
     
     # Añadir Paso 2 en Resultados.txt
     with open("Resultados.txt", "a", encoding="utf-8") as f:

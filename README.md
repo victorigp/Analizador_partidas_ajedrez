@@ -1,18 +1,20 @@
 # Analizador de Partidas de Ajedrez
 
-Un script automatizado en Python que te permite extraer cualquier partida jugada en **Chess.com**, importarla automáticamente a **Lichess.org** para su análisis con Stockfish, y utilizar la **Inteligencia Artificial de Google Gemini** para generar comentarios detallados y explicaciones didácticas sobre los errores y momentos clave de la partida. Finalmente, agrupa todo en un **Estudio interactivo de Lichess**.
+Un script automatizado en Python que te permite extraer cualquier partida jugada en **Chess.com**, evaluarla localmente con **Stockfish**, y utilizar la **Inteligencia Artificial de Google Gemini** para generar comentarios detallados y explicaciones didácticas sobre los errores y momentos clave de la partida. Finalmente, agrupa todo en un **Estudio interactivo de Lichess**.
 
 ## 🚀 Características
 
 - **Extracción automática:** Obtiene el PGN completo de partidas de Chess.com utilizando Playwright.
-- **Integración con Lichess:** Crea estudios privados, importa los PGNs y gestiona los capítulos automáticamente usando la API REST de Lichess.
+- **Análisis Local Preciso:** Evalúa cada jugada con el motor Stockfish local para clasificar los movimientos (Brillante, Error, etc.).
+- **Integración con Lichess:** Crea estudios privados y gestiona los capítulos automáticamente usando la API REST de Lichess.
 - **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini para generar comentarios detallados y explicaciones didácticas en lenguaje natural.
-- **Automatización de análisis:** Incluye un script de Tampermonkey para incluir un botón en la web de chess.com para iniciar el proceso y para solicitar el análisis de servidor de Lichess.
+- **Automatización UI:** Incluye scripts para inyectar botones en Chess.com y visualizar métricas.
 - **Gestión de Sesión inteligente:** Extrae automáticamente las cookies necesarias (`lila2`) de tu navegador local (Chrome, Brave, Edge, etc.) para autenticarse en Lichess sin complicaciones.
 
 ## 📋 Requisitos Previos
 
 - **Python 3.10 o superior** instalado en tu sistema.
+- **Binario de Stockfish** (ejecutable de Windows) para el análisis local. Incluido en el repositorio en la carpeta `stockfish`.
 - Una cuenta gratuita en **Lichess.org**.
 - Un Token API de Lichess (debes crearlo desde las preferencias de tu cuenta de Lichess).
 - Una clave API gratuita de **Google Gemini** (debes crearla desde Google AI Studio).
@@ -22,7 +24,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 1. Clona o descarga este repositorio en tu ordenador.
 2. Abre una terminal en la carpeta del proyecto e instala las dependencias de Python:
    ```bash
-   pip install playwright google-generativeai
+   pip install playwright google-generativeai chess
    ```
 3. Instala los navegadores necesarios para Playwright:
    ```bash
@@ -50,6 +52,11 @@ GEMINI_API_KEY=tu_clave_api_de_gemini
 GEMINI_API_KEY_1=tu_clave_api_alternativa_1 (Opcional, se usará si la principal agota su cuota)
 GEMINI_API_KEY_2=tu_clave_api_alternativa_2 (Opcional, puedes añadir más API KEY si lo deseas)
 GEMINI_MODEL=el_modelo_a_usar (ej: gemini-3.5-flash, gemini-3.1-pro-preview, etc.)
+STOCKFISH_PATH=stockfish/stockfish-windows-x86-64-universal.exe (Opcional, busca por defecto en la subcarpeta stockfish)
+STOCKFISH_THREADS=2 (Opcional, hilos de CPU asignados a Stockfish)
+STOCKFISH_HASH=128 (Opcional, memoria RAM en MB asignada a Stockfish)
+STOCKFISH_DEPTH=20 (Opcional, profundidad de análisis, por defecto 20)
+POLYGLOT_BOOK_PATH=stockfish/polyglot.bin (Opcional, busca por defecto en la subcarpeta stockfish)
 ```
 
 ## 🎮 Uso
@@ -87,6 +94,7 @@ Una vez introducida la URL, el script hará todo el trabajo sucio en segundo pla
 - `extraer_pgn.py`: Módulo con Playwright para extraer el texto PGN desde Chess.com.
 - `lichess_api.py`: Comunicación con la API REST de Lichess.
 - `analisis_ia.py`: Conexión con Google Gemini para generar los comentarios en español.
+- `local_analysis.py`: Ejecuta Stockfish localmente para evaluar y clasificar cada jugada.
 - `crear_estudio.py`: Lógica para estructurar el estudio en Lichess con los comentarios.
 - `browser_utils.py`: Utilidad para inicializar el navegador Playwright correcto.
 - `login_manual.py`: Utilidad para extraer cookies de sesión de los navegadores locales.

@@ -151,16 +151,20 @@ Output Format (STRICT REQUIREMENTS):
  - Content: Explain the idea behind the move, its immediate strategic and tactical consequences, and how it affects the position. Cover both White's and Black's moves in their respective turns. In key moves, he explains why they are key, what the player or opponent should do, and analyzes the current situation of the game.
  -Numerical Evaluation: If the source analysis provides an evaluation like [%eval X.XX], you MUST include it at the END of the comment, INSIDE the curly braces {{}}, preceded by a space, using square brackets [] with the appropriate + or - sign. Example: {{Comentario sobre la jugada. [+0.75]}} or {{Comentario sobre la jugada. [-1.20]}}. DO NOT include the text %eval in your output.
  - Language and Notation: Comments MUST be in Spanish. Move notation must be standard English algebraic notation (e.g., e4, Nf3, O-O, Bxd5).
-- Handling Evaluation Terms (e.g., Inaccuracy, Mistake, Blunder):  
-   - MANDATORY Application: You MUST ALWAYS apply the Handling Evaluation Terms rules to EVERY move that carries an annotation symbol. No move with an annotation should lack the corresponding tonal treatment.
-   - Tone Consistency with PGN Annotations: The tone of your commentary MUST strictly match any annotation symbols present in the input PGN (?, ??, ?!). 
-     * For ?? (Blunder): The commentary must be harsh and severely critical. Make it clear this is a catastrophic error that ruins or seriously damages the position. NEVER praise or soften a ??. Be direct about the gravity of the mistake.
-     * For ? (Mistake): The commentary must be clearly negative and critical. Point out the damage caused without sugarcoating it. NEVER praise a move marked with ?.
-     * For ?! (Inaccuracy): The tone should be cautionary and mildly critical, pointing out a misstep that lets the opponent improve their position. Do NOT praise or encourage the player for an inaccuracy.
+- Handling Evaluation Terms (e.g., [#BLUNDER#], [#BEST#], [#BRILLIANT#]):  
+   - MANDATORY Application: You MUST ALWAYS apply the Handling Evaluation Terms rules to EVERY move that carries an annotation tag like [#TAG#]. No move with an annotation should lack the corresponding tonal treatment.
+   - Tone Consistency with PGN Annotations: The tone of your commentary MUST strictly match the annotation tag present in the input PGN. 
+     * For [#BLUNDER#] or ??: The commentary must be harsh and severely critical. Make it clear this is a catastrophic error that ruins or seriously damages the position. NEVER praise or soften a blunder.
+     * For [#MISTAKE#] or ?: The commentary must be clearly negative and critical. Point out the damage caused without sugarcoating it.
+     * For [#INACCURACY#] or ?!: The tone should be cautionary and mildly critical, pointing out a misstep.
+     * For [#GOOD#] or [#EXCELLENT#]: The tone should be positive and encouraging, acknowledging a solid move.
+     * For [#BEST#]: The commentary should be praising, noting that the player found the optimal continuation.
+     * For [#GREAT#] or [#BRILLIANT#]: The commentary MUST be highly enthusiastic. Emphasize the depth, creativity or tactical vision.
+     * For [#BOOK#]: Briefly mention that this is a known opening theoretical move.
 
-   - MANDATORY Justification of Classification: For EVERY annotated move, you MUST explain WHY the move deserves that classification. Do not simply state that a move is bad; explain the concrete positional, tactical, or strategic reasons behind the evaluation. If the consequences of a move become apparent in the following moves, you MUST reference those subsequent developments to justify the classification (e.g., "Esta jugada debilita gravemente tu posición, como se verá en las próximas jugadas donde tu rival aprovecha la debilidad creada.").
-   - CRITICAL for Negative Moves (?!, ?, ??): When analyzing moves belonging to {target_player} that are marked as inaccuracy (?!), mistake (?), or blunder (??), you must be CRITICAL, not encouraging. Do NOT praise the player's intention or effort. Focus on what went wrong, what weakness was created, or what opportunity was missed. Scale the severity of your criticism to match the annotation: mild criticism for ?!, firm criticism for ?, and severe criticism for ??.
-   IMPORTANT: Do not explicitly write the words "Blunder", "Mistake", etc., inside the braces {{}}; instead, convey their meaning entirely through the emotional tone, critique, and justification of your Spanish explanation.
+   - MANDATORY Justification of Classification: For EVERY annotated move, you MUST explain WHY the move deserves that classification. Do not simply state that a move is bad; explain the concrete positional, tactical, or strategic reasons behind the evaluation. If the consequences of a move become apparent in the following moves, you MUST reference those subsequent developments to justify the classification.
+   - CRITICAL for Negative Moves ([#INACCURACY#], [#MISTAKE#], [#BLUNDER#]): When analyzing moves belonging to {target_player} that are marked with negative tags, you must be CRITICAL, not encouraging. Scale the severity of your criticism to match the annotation.
+   IMPORTANT: Do not explicitly write the words "Blunder", "Mistake", "Brilliant", etc., inside the braces {{}}; instead, convey their meaning entirely through the emotional tone, critique, and justification of your Spanish explanation.
 
 - CRITICAL RESTRICTION - NO Mentioning Specific Squares, specific pieces not mentioned in the move or Unsolicited Alternative Moves: This is the MOST IMPORTANT RULE and must be followed with extreme precision. 
 Specific Squares Forbidden: ABSOLUTELY NO MENTION of specific square coordinates (like e5, c6, f7) is allowed INSIDE the curly braces {{}} of the comment, unless explicitly required by the exception below.
