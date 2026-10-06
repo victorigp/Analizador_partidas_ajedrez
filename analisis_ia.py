@@ -88,7 +88,7 @@ def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     modelo_configurado = env_vars.get("GEMINI_MODEL", "gemini-1.5-pro")
     modelo_usar = _obtener_modelo_pro_mas_reciente(api_key, modelo_configurado)
 
-    print(f"\n[Google IA] Enviando PGN a {modelo_usar} para evaluacion de Gran Maestro...")
+    print(f"\n[Google IA] Enviando PGN a {modelo_usar} para evaluacion...")
     
     # Extraer nombres
     white_name = "White"

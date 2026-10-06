@@ -28,14 +28,14 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
    ```bash
    playwright install chromium
    ```
-4. **Instalación del script de auto-análisis (Opcional pero recomendado):**
+4. **Instalación del script de integración en Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
-   - Crea un nuevo script, copia el contenido del archivo `lichess_auto_analyzer.js` que viene en el proyecto, y guárdalo. Esto permitirá que el análisis de la computadora en Lichess arranque automáticamente al finalizar la exportación.
-5. **Instalación del Botón Flotante en Chess.com (Opcional pero recomendado):**
-   - El proyecto incluye una carpeta llamada `Boton flotante` que te permite integrar el analizador directamente en la interfaz de Chess.com.
+   - Importa o crea un nuevo script con el contenido del archivo `Boton flotante/chess_button_analyzer.js`.
+   - Este script unificado tiene dos funciones:
+     - Añade un botón verde flotante "🤖 Analizar con IA" en Chess.com.
+     - Automatiza el análisis de computadora en Lichess cuando termina la exportación.
+5. **Configuración del Protocolo en Windows (Necesario para el botón flotante):**
    - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir tu analizador cuando detecte el protocolo `ajedrez://`.
-   - Importa en **Tampermonkey** el script de `Boton flotante/chess_button_analyzer.js`.
-   - A partir de ahora, cuando estés en una partida de Chess.com, aparecerá un botón verde flotante de "🤖 Analizar con IA" que lanzará el script en segundo plano automáticamente.
 
 ## ⚙️ Configuración (.env)
 
@@ -92,8 +92,7 @@ Una vez introducida la URL, el script hará todo el trabajo sucio en segundo pla
 - `browser_utils.py`: Utilidad para inicializar el navegador Playwright correcto.
 - `login_manual.py`: Utilidad para extraer cookies de sesión de los navegadores locales.
 - `EJECUTAR.bat`: Script de Windows para lanzar el programa rápidamente.
-- `lichess_auto_analyzer.js`: Script de Tampermonkey para la automatización en cliente.
-- `Boton flotante/`: Directorio con los scripts necesarios para integrar el botón en la web de Chess.com.
+- `Boton flotante/`: Directorio con los scripts (Tampermonkey y bat) para integrar el botón en Chess.com y automatizar Lichess.
 
 ## 📜 Licencia
 

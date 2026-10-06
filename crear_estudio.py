@@ -198,8 +198,7 @@ def crear_estudio_desde_txt():
     study_url_auto = f"{study_url}?auto_analyze=1"
     
     print(f"\n[Ok] Estudio creado correctamente: {study_url}")
-    print("\n[Info] A continuacion se abrira el estudio en tu navegador habitual.")
-    print("       (Si tienes instalado el script de Tampermonkey, el analisis se solicitara automaticamente)")
+    print(f"\n[Info] Si tienes instalado el script opcional de Tampermonkey, el estudio de Lichess con la partida se abrirá en tu navegador habitual y solicitará el análisis directamente.")
     
     import webbrowser
     webbrowser.open(study_url_auto)

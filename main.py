@@ -147,6 +147,9 @@ def main():
     
     # PASO 3: IA de Google
     print("\n--- PASO 3: Analisis de IA de Google ---")
+
+    print(f"\n[Info] Si tienes instalado el script opcional de Tampermonkey, cuando termine el análisis de la IA, el estudio de Lichess con la partida se abrirá en tu navegador habitual y solicitará el análisis directamente.")        
+     
     from analisis_ia import analizar_pgn_con_ia
     explicacion = analizar_pgn_con_ia(pgn, pgn_anotado, stats)
     
