@@ -7,7 +7,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 - **Extracción automática:** Obtiene el PGN completo de partidas de Chess.com utilizando Playwright.
 - **Integración con Lichess:** Crea estudios privados, importa los PGNs y gestiona los capítulos automáticamente usando la API REST de Lichess.
 - **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini para generar comentarios detallados y explicaciones didácticas en lenguaje natural.
-- **Automatización de análisis:** Incluye un script de Tampermonkey para solicitar el análisis de servidor de Lichess.
+- **Automatización de análisis:** Incluye un script de Tampermonkey para incluir un botón en la web de chess.com para iniciar el proceso y para solicitar el análisis de servidor de Lichess.
 - **Gestión de Sesión inteligente:** Extrae automáticamente las cookies necesarias (`lila2`) de tu navegador local (Chrome, Brave, Edge, etc.) para autenticarse en Lichess sin complicaciones.
 
 ## 📋 Requisitos Previos
@@ -31,11 +31,10 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 4. **Instalación del script de integración en Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
    - Importa o crea un nuevo script con el contenido del archivo `Boton flotante/chess_button_analyzer.js`.
-   - Este script unificado tiene dos funciones:
+   - Este script tiene dos funciones:
      - Añade un botón verde flotante "🤖 Analizar con IA" en Chess.com.
      - Automatiza el análisis de computadora en Lichess cuando termina la exportación.
-5. **Configuración del Protocolo en Windows (Necesario para el botón flotante):**
-   - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir tu analizador cuando detecte el protocolo `ajedrez://`.
+   - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir el analizador cuando detecte el protocolo `ajedrez://`.
 
 ## ⚙️ Configuración (.env)
 
@@ -50,12 +49,12 @@ LICHESS_COOKIE=tu_cookie_lila2_aqui (Opcional, el script puede extraerla de tu n
 GEMINI_API_KEY=tu_clave_api_de_gemini
 GEMINI_API_KEY_1=tu_clave_api_alternativa_1 (Opcional, se usará si la principal agota su cuota)
 GEMINI_API_KEY_2=tu_clave_api_alternativa_2 (Opcional, puedes añadir más API KEY si lo deseas)
-GEMINI_MODEL=gemini-3.1-pro-preview
+GEMINI_MODEL=el_modelo_a_usar (ej: gemini-3.5-flash, gemini-3.1-pro-preview, etc.)
 ```
 
 ## 🎮 Uso
 
-La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com (ver instrucciones de instalación arriba). Una vez instalado, solo tienes que hacer clic en el botón verde "🤖 Analizar con IA" al terminar una partida.
+La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com (ver instrucciones de instalación arriba). Una vez instalado, solo tienes que hacer clic en el botón verde "🤖 Analizar con IA" en una partida.
 
 Si no deseas instalar el botón flotante, puedes usar el archivo por lotes en Windows:
 
