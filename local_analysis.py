@@ -69,6 +69,10 @@ def analyze_pgn(pgn_string: str) -> str:
         except (TypeError, ValueError):
             return None
 
+    def get_player_name(header: str, fallback: str) -> str:
+        name = game.headers.get(header, "").strip()
+        return name if name and name != "?" else fallback
+
     from advanced_classification import AdvancedClassifier, caps2_accuracy, net_material_loss
     classifier = AdvancedClassifier(
         white_rating=get_rating("WhiteElo"),
@@ -172,7 +176,28 @@ def analyze_pgn(pgn_string: str) -> str:
     
     # Se almacenan las clasificaciones por color para el resumen.
     summary_counts = {chess.WHITE: Counter(), chess.BLACK: Counter()}
-    accuracy_losses = {chess.WHITE: [], chess.BLACK: []}
+    accuracy_losses = {
+        chess.WHITE: {"Apertura": [], "Medio juego": [], "Final": []},
+        chess.BLACK: {"Apertura": [], "Medio juego": [], "Final": []}
+    }
+
+    def get_phase(board_before: chess.Board, current: str) -> str:
+        if current == "Final":
+            return "Final"
+        def non_pawn_material(color):
+            mat = 0
+            for piece in board_before.piece_map().values():
+                if piece.color == color and piece.piece_type not in (chess.PAWN, chess.KING):
+                    val = 9 if piece.piece_type == chess.QUEEN else (5 if piece.piece_type == chess.ROOK else 3)
+                    mat += val
+            return mat
+        if non_pawn_material(chess.WHITE) <= 13 and non_pawn_material(chess.BLACK) <= 13:
+            return "Final"
+        if current == "Apertura" and board_before.fullmove_number > 10:
+            return "Medio juego"
+        return current
+
+    current_phase = "Apertura"
 
     def print_timer():
         while not analysis_done:
@@ -193,6 +218,7 @@ def analyze_pgn(pgn_string: str) -> str:
                 
         try:
             board_before = board.copy()
+            current_phase = get_phase(board_before, current_phase)
             # Se analizan Best, Second y la jugada real desde la misma posición raíz.
             engine_result = engine_analysis(board_before, move, analysis_limit)
             requires_tactical_verification = (
@@ -239,14 +265,14 @@ def analyze_pgn(pgn_string: str) -> str:
 
             # Se añade la clasificación al color que realizó la jugada.
             summary_counts[board.turn][classification] += 1
-            accuracy_losses[board.turn].append(classifier.last_loss)
+            accuracy_losses[board.turn][current_phase].append(classifier.last_loss)
 
             if played_score_white.is_mate():
                 eval_value = f"M{played_score_white.mate()}"
             else:
                 eval_value = f"{played_score_white.score() / 100.0:.2f}"
                 
-            comment = f"[%eval {eval_value}] {classification}"
+            comment = f"[%eval {eval_value}] [#LOCAL_EVAL:{eval_value}#] {classification}"
             if next_node.comment:
                 next_node.comment = f"{comment} {next_node.comment}"
             else:
@@ -270,15 +296,51 @@ def analyze_pgn(pgn_string: str) -> str:
     mins, secs = divmod(total_elapsed, 60)
     print(f"\nAnálisis completado en {mins:02d}:{secs:02d} ({end_time - start_time:.2f} segundos).")
     
-    # Se imprime el resumen separado por color.
+    # Se imprime el resumen de ambos jugadores en columnas.
     print("\n--- Resumen de Movimientos ---")
-    for color, label in ((chess.WHITE, "Blancas"), (chess.BLACK, "Negras")):
-        print(f"{label}:")
-        for category_name, tag in ANNOTATIONS.items():
-            count = summary_counts[color].get(tag, 0)
-            print(f"  {category_name.capitalize()}: {count}")
-        print(f"  Accuracy CAPS2 aprox.: {caps2_accuracy(accuracy_losses[color]):.1f}")
+    players = {
+        chess.WHITE: ("Blancas", get_player_name("White", "Blancas"), get_rating("WhiteElo")),
+        chess.BLACK: ("Negras", get_player_name("Black", "Negras"), get_rating("BlackElo")),
+    }
+
+    def player_header(color: bool) -> str:
+        side, name, rating = players[color]
+        used_rating = classifier.white_rating if color == chess.WHITE else classifier.black_rating
+        rating_text = str(rating) if rating is not None else f"sin Elo, usado {used_rating}"
+        return f"{side}: {name} (Elo: {rating_text})"
+
+    white_header = player_header(chess.WHITE)
+    black_header = player_header(chess.BLACK)
+    column_width = max(len(white_header), len(black_header), 30)
+    print(f"{white_header:<{column_width}}  {black_header}")
+    for category_name, tag in ANNOTATIONS.items():
+        white_line = f"  {category_name.capitalize()}: {summary_counts[chess.WHITE].get(tag, 0)}"
+        black_line = f"  {category_name.capitalize()}: {summary_counts[chess.BLACK].get(tag, 0)}"
+        print(f"{white_line:<{column_width}}  {black_line}")
+    def get_all_losses(losses_dict):
+        return [loss for phase_losses in losses_dict.values() for loss in phase_losses]
+
+    white_accuracy = f"  Accuracy CAPS2 aprox.: {caps2_accuracy(get_all_losses(accuracy_losses[chess.WHITE])):.1f}"
+    black_accuracy = f"  Accuracy CAPS2 aprox.: {caps2_accuracy(get_all_losses(accuracy_losses[chess.BLACK])):.1f}"
+    print(f"{white_accuracy:<{column_width}}  {black_accuracy}")
+    for phase in ["Apertura", "Medio juego", "Final"]:
+        w_acc = f"    {phase}: {caps2_accuracy(accuracy_losses[chess.WHITE][phase]):.1f}"
+        b_acc = f"    {phase}: {caps2_accuracy(accuracy_losses[chess.BLACK][phase]):.1f}"
+        print(f"{w_acc:<{column_width}}  {b_acc}")
     print("------------------------------\n")
+
+    # Añadir las precisiones como cabeceras al PGN
+    game.headers["WhiteEloAccuracy"] = f"{caps2_accuracy(get_all_losses(accuracy_losses[chess.WHITE])):.1f}"
+    game.headers["BlackEloAccuracy"] = f"{caps2_accuracy(get_all_losses(accuracy_losses[chess.BLACK])):.1f}"
+    for phase in ["Apertura", "Medio juego", "Final"]:
+        header_phase = phase.replace(" ", "")
+        game.headers[f"WhiteEloAccuracy{header_phase}"] = f"{caps2_accuracy(accuracy_losses[chess.WHITE][phase]):.1f}"
+        game.headers[f"BlackEloAccuracy{header_phase}"] = f"{caps2_accuracy(accuracy_losses[chess.BLACK][phase]):.1f}"
+
+    game.headers["WhiteBrilliant"] = str(summary_counts[chess.WHITE].get("[#BRILLIANT#]", 0))
+    game.headers["BlackBrilliant"] = str(summary_counts[chess.BLACK].get("[#BRILLIANT#]", 0))
+    game.headers["WhiteGreat"] = str(summary_counts[chess.WHITE].get("[#GREAT#]", 0))
+    game.headers["BlackGreat"] = str(summary_counts[chess.BLACK].get("[#GREAT#]", 0))
 
     # Se exporta la partida resultante a una cadena PGN
     exporter = chess.pgn.StringExporter(headers=True, variations=True, comments=True)

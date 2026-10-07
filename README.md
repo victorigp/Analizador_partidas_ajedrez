@@ -30,12 +30,12 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
    ```bash
    playwright install chromium
    ```
-4. **Instalación del script de integración en Tampermonkey (Opcional pero recomendado):**
+4. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
-   - Importa o crea un nuevo script con el contenido del archivo `Boton flotante/chess_button_analyzer.js`.
+   - Importa `Boton flotante/chess_button_analyzer.js`.
    - Este script tiene dos funciones:
-     - Añade un botón verde flotante "🤖 Analizar con IA" en Chess.com.
-     - Automatiza el análisis de computadora en Lichess cuando termina la exportación.
+      - En Chess.com añade el botón verde "🤖 Analizar con IA". 
+      - En el estudio final de Lichess muestra el gráfico de la partida, las anotaciones hechas por la IA y la clasificación de las jugadas parecidas a chess.com
    - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir el analizador cuando detecte el protocolo `ajedrez://`.
 
 ## ⚙️ Configuración (.env)
@@ -99,7 +99,7 @@ Una vez introducida la URL, el script hará todo el trabajo sucio en segundo pla
 - `browser_utils.py`: Utilidad para inicializar el navegador Playwright correcto.
 - `login_manual.py`: Utilidad para extraer cookies de sesión de los navegadores locales.
 - `EJECUTAR.bat`: Script de Windows para lanzar el programa rápidamente.
-- `Boton flotante/`: Directorio con los scripts (Tampermonkey y bat) para integrar el botón en Chess.com y automatizar Lichess.
+- `Boton flotante/`: Directorio con los scripts de Tampermonkey y el protocolo de apertura para integrar Chess.com y Lichess.
 
 ## 📜 Licencia
 

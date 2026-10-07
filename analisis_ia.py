@@ -1,6 +1,53 @@
 import os
+import io
 import re
+import chess.pgn
 import google.generativeai as genai
+
+
+def _extraer_metadatos_locales(pgn_texto):
+    partida = chess.pgn.read_game(io.StringIO(pgn_texto))
+    if partida is None:
+        return []
+
+    metadatos = []
+    nodo = partida
+    while nodo.variations:
+        nodo = nodo.variation(0)
+        evaluacion = re.search(r'\[%eval\s+([^\]\s]+)\]', nodo.comment, re.IGNORECASE)
+        tipo = re.search(r'\[#(BRILLIANT|GREAT|BOOK|BEST|EXCELLENT|GOOD|INACCURACY|MISTAKE|MISS|BLUNDER)#\]', nodo.comment, re.IGNORECASE)
+        if evaluacion and tipo:
+            valor = evaluacion.group(1)
+            metadatos.append(f"[%eval {valor}] [#LOCAL_EVAL:{valor}#] [#{tipo.group(1).upper()}#]")
+        else:
+            metadatos.append("")
+    return metadatos
+
+
+def _restaurar_metadatos_locales(pgn_ia, pgn_anotado):
+    metadatos = _extraer_metadatos_locales(pgn_anotado)
+    if not metadatos:
+        return pgn_ia
+
+    partida = chess.pgn.read_game(io.StringIO(pgn_ia))
+    if partida is None:
+        return pgn_ia
+
+    nodo = partida
+    indice = 0
+    patron = re.compile(
+        r'\s*\[%eval\s+[^\]]+\]|\s*\[#LOCAL_EVAL\s*:\s*[^#\]]+#\]|\s*\[#(?:BRILLIANT|GREAT|BOOK|BEST|EXCELLENT|GOOD|INACCURACY|MISTAKE|MISS|BLUNDER)#\]',
+        re.IGNORECASE,
+    )
+    while nodo.variations and indice < len(metadatos):
+        nodo = nodo.variation(0)
+        comentario = patron.sub('', nodo.comment).strip()
+        if metadatos[indice]:
+            nodo.comment = f"{comentario} {metadatos[indice]}".strip()
+        indice += 1
+
+    exportador = chess.pgn.StringExporter(headers=True, variations=True, comments=True)
+    return partida.accept(exportador)
 
 def _cargar_env():
     env_vars = {}
@@ -33,40 +80,7 @@ def _guardar_env(key, value):
             f.write(f"{key}={value}\n")
 
 def _obtener_modelo_pro_mas_reciente(api_key, modelo_actual):
-    try:
-        genai.configure(api_key=api_key)
-        modelos_pro = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods and 'pro' in m.name.lower() and 'vision' not in m.name.lower():
-                modelos_pro.append(m.name)
-                
-        if not modelos_pro:
-            return modelo_actual
-            
-        def extract_version(name):
-            match = re.search(r'gemini-(\d+(?:\.\d+)*)', name)
-            if match:
-                return [float(x) for x in match.group(1).split('.')]
-            return [0]
-            
-        modelos_pro.sort(key=extract_version, reverse=True)
-        mejor_modelo = modelos_pro[0]
-        
-        mejor_modelo_clean = mejor_modelo.replace('models/', '')
-        actual_clean = modelo_actual.replace('models/', '')
-        
-        if extract_version(mejor_modelo_clean) > extract_version(actual_clean):
-            print(f"\n[Info] Se ha detectado un modelo de Gemini Pro mas reciente: {mejor_modelo_clean} (actual: {actual_clean})")
-            opcion = input("¿Quieres actualizar el .env para usar este nuevo modelo de ahora en adelante? (S/N): ").strip().lower()
-            if opcion == 's':
-                _guardar_env('GEMINI_MODEL', mejor_modelo_clean)
-                print(f"[Ok] Modelo actualizado a {mejor_modelo_clean} en .env")
-                return mejor_modelo_clean
-                
-        return actual_clean
-    except Exception as e:
-        print(f"[Aviso] No se pudieron comprobar los modelos: {e}")
-        return modelo_actual.replace('models/', '')
+    return modelo_actual.replace('models/', '')
 
 def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     env_vars = _cargar_env()
@@ -109,17 +123,15 @@ def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     pgn_anotado = re.sub(r'(\r?\n)([ \t]*(\r?\n))+', r'\n', pgn_anotado).strip()
     
     # Construir bloque de estadísticas
-    stats_texto = ""
-    if stats:
-        stats_texto = f"""
+    stats_texto = f"""
 In the initial match summary, indicate this as follows:
 {white_name} ELO partida: XXXX <line break>{black_name} ELO partida: YYYY <line break><line break>
-Calculate the match ELO only based on the following metrics and replace the values of XXXX and YYYY.  
+Calculate the match ELO based on the accuracy and the moves quality and replace the values of XXXX and YYYY.  
 Just put only the text and the Elo, without any justification.
-I know it is not possible to accurately calculate a specific "match ELO", but you have to try to estimate the match ELO of two players based on the values: 
-
-{white_name}:
+I know it is not possible to accurately calculate a specific "match ELO", but you have to try to estimate the match ELO of two players based on the PGN evaluation and accuracy headers.
 """
+    if stats:
+        stats_texto += f"\nYou can also use these additional metrics from chess.com:\n{white_name}:\n"
         def bstats(p):
             l=[]
             if 'Imprecisiones' in p: l.append(f"{p['Imprecisiones']} Imprecisiones")
@@ -149,7 +161,7 @@ Output Format (STRICT REQUIREMENTS):
 4. Move Comments:
  - Placement: After EACH move number and move notation (e.g., 1. e4, 1... c5), add an explanatory comment enclosed in a single pair of curly braces {{}}.
  - Content: Explain the idea behind the move, its immediate strategic and tactical consequences, and how it affects the position. Cover both White's and Black's moves in their respective turns. In key moves, he explains why they are key, what the player or opponent should do, and analyzes the current situation of the game.
- -Numerical Evaluation: If the source analysis provides an evaluation like [%eval X.XX], you MUST include it at the END of the comment, INSIDE the curly braces {{}}, preceded by a space, using square brackets [] with the appropriate + or - sign. Example: {{Comentario sobre la jugada. [+0.75]}} or {{Comentario sobre la jugada. [-1.20]}}. DO NOT include the text %eval in your output.
+ - Metadatos locales obligatorios: Si la jugada de entrada contiene `[%eval X.XX]`, `[#LOCAL_EVAL:X.XX#]` y una etiqueta `[#TIPO#]`, debes conservar LOS TRES textos exactos al final del único comentario de esa jugada. Ejemplo: {{Comentario sobre la jugada. [%eval +0.75] [#LOCAL_EVAL:+0.75#] [#EXCELLENT#]}}. No alteres, traduzcas, omitas ni inventes estos metadatos; la interfaz local de Lichess los utiliza para el gráfico y los iconos.
  - Language and Notation: Comments MUST be in Spanish. Move notation must be standard English algebraic notation (e.g., e4, Nf3, O-O, Bxd5).
 - Handling Evaluation Terms (e.g., [#BLUNDER#], [#BEST#], [#BRILLIANT#]):  
    - MANDATORY Application: You MUST ALWAYS apply the Handling Evaluation Terms rules to EVERY move that carries an annotation tag like [#TAG#]. No move with an annotation should lack the corresponding tonal treatment.
@@ -157,9 +169,10 @@ Output Format (STRICT REQUIREMENTS):
      * For [#BLUNDER#] or ??: The commentary must be harsh and severely critical. Make it clear this is a catastrophic error that ruins or seriously damages the position. NEVER praise or soften a blunder.
      * For [#MISTAKE#] or ?: The commentary must be clearly negative and critical. Point out the damage caused without sugarcoating it.
      * For [#INACCURACY#] or ?!: The tone should be cautionary and mildly critical, pointing out a misstep.
-     * For [#GOOD#] or [#EXCELLENT#]: The tone should be positive and encouraging, acknowledging a solid move.
+     * For [#GOOD#] or [#EXCELLENT#]: Make a normal, analytical comment explaining the move without being overly positive.
      * For [#BEST#]: The commentary should be praising, noting that the player found the optimal continuation.
-     * For [#GREAT#] or [#BRILLIANT#]: The commentary MUST be highly enthusiastic. Emphasize the depth, creativity or tactical vision.
+     * For [#GREAT#]: The commentary MUST be enthusiastic. Emphasize the strong tactical vision or positional understanding.
+     * For [#BRILLIANT#]: The commentary MUST be extremely dramatic, eye-catching, and highly praising, clearly standing out as an absolutely superior move, far above a merely great one. Emphasize the extraordinary depth, creativity, or stunning tactical sacrifice.
      * For [#BOOK#]: Briefly mention that this is a known opening theoretical move.
 
    - MANDATORY Justification of Classification: For EVERY annotated move, you MUST explain WHY the move deserves that classification. Do not simply state that a move is bad; explain the concrete positional, tactical, or strategic reasons behind the evaluation. If the consequences of a move become apparent in the following moves, you MUST reference those subsequent developments to justify the classification.
@@ -190,7 +203,7 @@ If the source text does NOT provide such specific alternative notation to be inc
  - Address them using the Spanish informal second-person singular in the comments for THEIR moves.
  - Adopt a pedagogical, understanding, and encouraging tone in Spanish. Highlight good ideas ("{{Aquí buscaste correctamente presionar el flanco de dama.}}") and explain mistakes constructively ("{{Esta jugada te deja vulnerable a un ataque doble en c2, ¡cuidado la próxima vez!}}"). Emphasize their successes ("{{¡Excelente jugada defensiva bloqueando la columna abierta!}}", "{{¡Bien visto ese recurso táctico para simplificar la posición!}}"). Modulate the tone according to the quality of the move as per rule 4 "Handling Evaluation Terms".
 
-Input Context: I will provide you with the game in PGN format. This PGN may contain preliminary annotations like [%eval X.XX] or basic comments / evaluation symbols (!, ?, ??, etc.). You must use this base information to generate your complete analysis following ALL the rules above, producing the final commentary in Spanish.
+Input Context: I will provide you with the game in PGN format. This PGN contains metadatos locales `[%eval ...]`, `[#LOCAL_EVAL:...#]` y `[#TIPO#]`. You must use this base information to generate your complete analysis following ALL the rules above, producing the final commentary in Spanish while preserving those exact metadatos in their corresponding move comments.
 
 Final Goal: Generate a high-quality, commented PGN useful for an intermediate player's learning, strictly adhering to all specified formatting and content requirements, with all commentary written in Spanish and reflecting the appropriate emotional weight for each move's quality.
 
@@ -222,6 +235,7 @@ Input Context:
             model = genai.GenerativeModel(modelo_actual)
             response = model.generate_content(prompt_base)
             texto_ia = response.text
+            texto_ia = _restaurar_metadatos_locales(texto_ia, pgn_anotado)
             print("\n[Ok] Analisis de la IA recibido!\n")
             
             # Restaurar los ELO originales en el PGN devuelto por la IA

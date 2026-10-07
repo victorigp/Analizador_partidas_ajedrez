@@ -50,18 +50,36 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     else:
         resultado_txt = "WIN" if victoria else "LOSE"
         
-    # Extraer ELO estimado por la IA desde contenido_completo
-    elo_est_match = re.search(rf'{target_player} ELO partida:\s*(\d+)', contenido_completo, re.IGNORECASE)
-    elo_str = f"ELO: {elo_est_match.group(1)}" if elo_est_match else "ELO: ?"
+    color_prefix = "White" if is_white else "Black"
     
-    # Extraer stats del target player desde contenido_completo
-    # Usamos re.DOTALL para buscar las estadisticas despues de que aparezca su nombre en el bloque de stats
-    precision = ""
-    prec_match = re.search(rf'{target_player}:.*?(\d+%)\s+Precisi.n', contenido_completo, re.DOTALL)
-    if prec_match:
-        precision = prec_match.group(1) + ", "
-    # Nombre final: WIN, 96%, ELO: 1950
-    nombre_estudio = f"{resultado_txt}, {precision}{elo_str}"
+    # 1. Precision general
+    precision_match = re.search(fr'\[{color_prefix}EloAccuracy "(.*?)"\]', pgn_text)
+    precision_str = f"{precision_match.group(1)}%, " if precision_match else ""
+    
+    # 2. ELO
+    elo_est_match = re.search(rf'{target_player} ELO partida:\s*(\d+)', contenido_completo, re.IGNORECASE)
+    if elo_est_match:
+        elo_str = f"ELO: {elo_est_match.group(1)}"
+    else:
+        elo_match = re.search(fr'\[{color_prefix}Elo "(.*?)"\]', pgn_text)
+        elo_str = f"ELO: {elo_match.group(1)}" if elo_match and elo_match.group(1) != "?" else "ELO: ?"
+        
+    # 3. Brillantes y geniales
+    brillants_match = re.search(fr'\[{color_prefix}Brilliant "(.*?)"\]', pgn_text)
+    greats_match = re.search(fr'\[{color_prefix}Great "(.*?)"\]', pgn_text)
+    
+    brillants = int(brillants_match.group(1)) if brillants_match else 0
+    greats = int(greats_match.group(1)) if greats_match else 0
+    
+    extras = []
+    if brillants > 0:
+        extras.append(f"{brillants} Brillante{'s' if brillants > 1 else ''}")
+    if greats > 0:
+        extras.append(f"{greats} Genial{'es' if greats > 1 else ''}")
+        
+    extras_str = ", " + ", ".join(extras) if extras else ""
+    
+    nombre_estudio = f"{resultado_txt}, {precision_str}{elo_str}{extras_str}"
     return nombre_estudio, color_target
 
 def _api_request(url, token, data=None, method=None):
@@ -116,6 +134,20 @@ def crear_estudio_desde_txt():
     
     print(f"[Info] Nombre del estudio: {nombre_estudio}")
     print(f"[Info] Orientacion del tablero: {color_orientacion}")
+    
+    # Inyectar la cabecera Annotator con las precisiones en el PGN final
+    accuracies = re.findall(r'\[(\w*Accuracy\w*)\s+"([^"]+)"\]', contenido)
+    seen = set()
+    dedup_acc = []
+    for k, v in accuracies:
+        if k not in seen:
+            seen.add(k)
+            dedup_acc.append(f"{k}: {v}")
+            
+    if dedup_acc:
+        annotator_str = ", ".join(dedup_acc)
+        if '[Annotator' not in pgn_ia:
+            pgn_ia = re.sub(r'(\[Event\s+"[^"]+"\])', r'\1\n[Annotator "' + annotator_str + '"]', pgn_ia, count=1)
     
     # ============================
     # PASO 1: Crear estudio via API
@@ -195,13 +227,12 @@ def crear_estudio_desde_txt():
     # ==============================================
     # PASO 5: Abrir estudio en el navegador
     # ==============================================
-    study_url_auto = f"{study_url}?auto_analyze=1"
-    
     print(f"\n[Ok] Estudio creado correctamente: {study_url}")
-    print(f"\n[Info] Si tienes instalado el script opcional de Tampermonkey, el estudio de Lichess con la partida se abrirá en tu navegador habitual y solicitará el análisis directamente.")
+    print(f"\n[Info] La UI de Tampermonkey leerá las evaluaciones locales del PGN; no se solicita análisis al servidor de Lichess.")
+    print(f"\n[Info] Si tienes instalado el script opcional de Tampermonkey, el estudio de Lichess con la partida se abrirá en tu navegador habitual directamente.")
     
     import webbrowser
-    webbrowser.open(study_url_auto)
+    webbrowser.open(study_url)
     
     print(f"\n[Ok] ¡Estudio completado con exito!")
     print(f"[Ok] URL: {study_url}")
