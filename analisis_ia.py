@@ -222,6 +222,9 @@ Input Context:
     
     modelo_actual = modelo_usar
     
+    intentos_ia = 0
+    max_intentos = 3
+
     while True:
         try:
             import os
@@ -234,7 +237,40 @@ Input Context:
                 
             model = genai.GenerativeModel(modelo_actual)
             response = model.generate_content(prompt_base)
-            texto_ia = response.text
+            texto_ia_crudo = response.text
+
+            # Limpiar bloque markdown y evitar dobles saltos de línea que rompen el parser de python-chess
+            texto_ia = re.sub(r'^```(pgn)?\s*|```$', '', texto_ia_crudo, flags=re.MULTILINE).strip()
+            texto_ia = re.sub(r'(?<!\])\n{2,}', '\n', texto_ia)
+            partida_test = chess.pgn.read_game(io.StringIO(texto_ia))
+            if partida_test is None or partida_test.errors or not list(partida_test.mainline_moves()) or partida_test.headers.get("Event", "?") == "?":
+                with open("Resultados.txt", "a", encoding="utf-8") as f:
+                    f.write(f"\n--- RESPUESTA DE LA IA (Intento {intentos_ia + 1}) [FALLIDO] ---\n")
+                    f.write(texto_ia_crudo)
+                    f.write("\n--------------------------------------------------\n")
+
+                intentos_ia += 1
+                error_msg = partida_test.errors[0] if partida_test and partida_test.errors else "Ausencia de movimientos o cabeceras válidas."
+                print(f"\n[Aviso] Errores detectados en el PGN: {error_msg}")
+                print(f"[Aviso] Reintentando petición a la IA ({intentos_ia}/{max_intentos})...")
+                if intentos_ia >= max_intentos:
+                    print("\n[Error] La IA no logró generar un formato PGN válido tras varios intentos.")
+                    print("¿Qué deseas hacer?")
+                    print("1. Reintentar (otros 3 intentos)")
+                    print("2. Utilizar otro modelo de IA")
+                    print("3. Salir")
+                    opcion_f = input("Selecciona una opción (1/2/3): ").strip()
+                    if opcion_f == '1':
+                        intentos_ia = 0
+                        continue
+                    elif opcion_f == '2':
+                        raise ValueError("CAMBIO_MODELO")
+                    else:
+                        import sys
+                        print("[Aviso] Saliendo del script...")
+                        sys.exit(0)
+                continue
+
             texto_ia = _restaurar_metadatos_locales(texto_ia, pgn_anotado)
             print("\n[Ok] Analisis de la IA recibido!\n")
             
@@ -265,15 +301,20 @@ Input Context:
                 indice_key_actual += 1
                 if indice_key_actual < len(api_keys):
                     api_key_name, api_key = api_keys[indice_key_actual]
+                    intentos_ia = 0
                     print(f"[Aviso] Cambiando automáticamente a la clave alternativa: {api_key_name}...")
                     continue
             else:
-                print(f"\n[Error] al contactar con Gemini ({modelo_actual}): {e}")
+                if "CAMBIO_MODELO" not in error_str:
+                    print(f"\n[Error] al contactar con Gemini ({modelo_actual}): {e}")
             
-            print("\n¿Qué deseas hacer?")
-            print("1. Utilizar otro modelo de IA")
-            print("2. Salir")
-            opcion_error = input("Selecciona una opción (1/2): ").strip()
+            if "CAMBIO_MODELO" in error_str:
+                opcion_error = '1'
+            else:
+                print("\n¿Qué deseas hacer?")
+                print("1. Utilizar otro modelo de IA")
+                print("2. Salir")
+                opcion_error = input("Selecciona una opción (1/2): ").strip()
             
             if opcion_error == '2':
                 import sys
@@ -304,6 +345,7 @@ Input Context:
                                 
                                 indice_key_actual = 0
                                 api_key_name, api_key = api_keys[indice_key_actual]
+                                intentos_ia = 0
                                 print(f"\n[Google IA] Reintentando con {modelo_actual} usando {api_key_name}...")
                                 continue
                             else:
