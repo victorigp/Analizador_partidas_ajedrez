@@ -33,14 +33,10 @@ from extraer_pgn import extraer_pgn_chesscom
 
 def main():
     print("=" * 50)
-    print("ANALIZADOR DE PARTIDAS")
+    print(" ANALIZADOR DE PARTIDAS")
     print("=" * 50)
     print()
-    from login_manual import verificar_y_configurar_sesion
-    if not verificar_y_configurar_sesion():
-        print("\n[Parada] Por favor, configura tu sesión de Lichess antes de continuar.")
-        return
-        
+
     url = ""
     if len(sys.argv) > 1:
         url = sys.argv[1]
@@ -104,8 +100,57 @@ def main():
         print("\n[Error] URL inválida. Debe ser un enlace a una partida de Chess.com.")
         return
         
+    # Extraer payload si existe
+    if "?payload=" in url or "&payload=" in url:
+        import urllib.parse
+        import base64
+        import json
+        
+        parsed_url = urllib.parse.urlparse(url)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        if 'payload' in query_params:
+            try:
+                payload_b64 = query_params['payload'][0]
+                payload_json = base64.b64decode(payload_b64).decode('utf-8')
+                config_data = json.loads(payload_json)
+                
+                # Actualizar el archivo .env
+                env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+                env_lines = []
+                if os.path.exists(env_path):
+                    with open(env_path, "r", encoding="utf-8") as f:
+                        env_lines = f.readlines()
+                
+                # Para cada clave, la reemplazamos si existe o la añadimos
+                keys_actualizadas = []
+                for key, value in config_data.items():
+                    if value is None or value == "":
+                        continue # No sobreescribir con valores vacíos
+                    
+                    keys_actualizadas.append(key)
+                    key_found = False
+                    for i, line in enumerate(env_lines):
+                        if line.startswith(f"{key}=") or line.startswith(f"#{key}="):
+                            env_lines[i] = f"{key}={value}\n"
+                            key_found = True
+                            break
+                    if not key_found:
+                        env_lines.append(f"{key}={value}\n")
+                        
+                with open(env_path, "w", encoding="utf-8") as f:
+                    f.writelines(env_lines)
+            except Exception as e:
+                import traceback
+                print(f"\n[Error] No se pudo procesar la configuración. Detalles: {e}")
+                traceback.print_exc()
+
     # Limpiar parametros de la URL (ej: ?move=0)
     url = url.split("?")[0]
+
+    from login_manual import verificar_y_configurar_sesion
+    if not verificar_y_configurar_sesion():
+        print("\n[Parada] Por favor, configura tu sesión de Lichess antes de continuar.")
+        return
 
     # Inicializar Resultados.txt vacío al arrancar el script
     with open("Resultados.txt", "w", encoding="utf-8") as f:
@@ -113,10 +158,17 @@ def main():
 
     # PASO 1: Extraccion
     print("\n--- PASO 1: Extraccion del PGN ---")
-    pgn = extraer_pgn_chesscom(url)
-    if not pgn:
-        print("[Error] Fallo en la extraccion del PGN.")
-        return
+    while True:
+        pgn = extraer_pgn_chesscom(url)
+        if not pgn:
+            print("[Error] Fallo en la extraccion del PGN.")
+            opcion = input("¿Deseas reintentar la extracción? (S/N): ").strip().lower()
+            if opcion == 's':
+                print("\nReintentando...")
+                continue
+            else:
+                return
+        break
         
     # Añadir Paso 1 en Resultados.txt
     with open("Resultados.txt", "a", encoding="utf-8") as f:

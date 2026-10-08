@@ -64,10 +64,10 @@ def verificar_y_configurar_sesion(forzar=False):
     print("\n==================================================")
     print("🔑 CONFIGURACION DE SESION LICHESS")
     print("==================================================")
-    print("Para analizar partidas en Lichess,")
+    print("Para crear el estudio en Lichess,")
     print("necesitamos tu cookie de sesion ('lila2').")
     print("\nPuedes configurar esto de dos formas:")
-    print(" 1) Manualmente: Pegando LICHESS_COOKIE=... en el archivo .env")
+    print(" 1) Manualmente: Usando la Configuración del botón en Chess.com si has instalado el script de Tampermonkey, o editando el archivo .env")
     print(" 2) Automaticamente: El script puede extraerla de tu navegador (requiere cerrarlo un momento).")
     print("==================================================")
     
@@ -83,41 +83,49 @@ def verificar_y_configurar_sesion(forzar=False):
                 print("[Error] Navegador no soportado para extraccion automatica.")
             else:
                 print(f"\nDetectado: {browser_name}.")
-                print(f"⚠️ IMPORTANTE: Cierra POR COMPLETO {browser_name} ahora mismo.")
-                print("(Si se queda abierto en segundo plano, este proceso fallara).")
-                
-                input("Pulsa ENTER cuando lo hayas cerrado TOTALMENTE...")
-                
-                print("\nExtrayendo cookie de tu perfil local...")
-                with sync_playwright() as p:
-                    try:
-                        context = p.chromium.launch_persistent_context(
-                            user_data_dir=user_data_dir,
-                            executable_path=executable_path,
-                            headless=True,
-                            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
-                            timeout=10000
-                        )
-                        cookies = context.cookies("https://lichess.org")
-                        lila2_cookie = next((c for c in cookies if c['name'] == 'lila2'), None)
-                        
-                        if lila2_cookie:
-                            guardar_cookie_env(lila2_cookie['value'])
-                            print("\n[Ok] ¡Cookie extraida con exito y guardada en tu archivo .env!")
-                            context.close()
-                            return True
-                        else:
-                            print("\n[Error] No se encontro la sesion de Lichess en tu navegador.")
-                            context.close()
-                    except Exception as e:
-                        print(f"\n[Error] No se pudo acceder al perfil (¿Seguro que estaba totalmente cerrado?). Detalles: {e}")
+                while True:
+                    print(f"⚠️ IMPORTANTE: Cierra POR COMPLETO {browser_name} ahora mismo.")
+                    print("(Si se queda abierto en segundo plano, este proceso fallara).")
+                    
+                    input("Pulsa ENTER cuando lo hayas cerrado TOTALMENTE...")
+                    
+                    print("\nExtrayendo cookie de tu perfil local...")
+                    with sync_playwright() as p:
+                        try:
+                            context = p.chromium.launch_persistent_context(
+                                user_data_dir=user_data_dir,
+                                executable_path=executable_path,
+                                headless=True,
+                                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+                                timeout=60000
+                            )
+                            cookies = context.cookies("https://lichess.org")
+                            lila2_cookie = next((c for c in cookies if c['name'] == 'lila2'), None)
+                            
+                            if lila2_cookie:
+                                guardar_cookie_env(lila2_cookie['value'])
+                                print("\n[Ok] ¡Cookie extraida con exito y guardada en tu archivo .env!")
+                                context.close()
+                                return True
+                            else:
+                                print("\n[Error] No se encontro la sesion de Lichess en tu navegador.")
+                                context.close()
+                                break
+                        except Exception as e:
+                            print(f"\n[Error] No se pudo acceder al perfil. Detalles: {e}")
+                            print("Sugerencia: El navegador puede tardar unos segundos en cerrarse completamente en segundo plano, o el tiempo de espera fue corto para un perfil pesado.")
+                            reintento = input("¿Deseas intentarlo de nuevo? (S/N): ").strip().lower()
+                            if reintento != 's':
+                                break
                 
     print("\n[Info] Configuración manual requerida:")
     print("1. Abre Lichess.org en tu navegador y asegúrate de haber iniciado sesion.")
     print("2. Pulsa F12 -> Ve a Application (o Aplicación) -> Cookies -> https://lichess.org")
     print("3. Busca la cookie 'lila2', copia su valor.")
-    print("4. Abre tu archivo .env y añade la linea: LICHESS_COOKIE=tu_valor_copiado")
-    print("5. Vuelve a ejecutar este programa.")
+    print("4. Puedes guardarla de dos formas:")
+    print("   - Opcion A (Recomendada): Si has instalado el script de Tampermonkey, pega ese valor directamente en la ventana de Configuración (la rueda dentada) del botón de Analizar de Chess.com.")
+    print("   - Opcion B: Abre tu archivo .env y añade/modifica la linea: LICHESS_COOKIE=tu_valor_copiado")
+    print("5. Vuelve a intentar analizar la partida.")
     return False
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -42,10 +42,11 @@ def analyze_pgn(pgn_string: str) -> str:
     try:
         engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
         # Configurar parámetros desde .env o usar valores por defecto
-        threads = int(os.getenv("STOCKFISH_THREADS", "2"))
-        hash_memory = int(os.getenv("STOCKFISH_HASH", "128"))
+        threads = int(os.getenv("STOCKFISH_THREADS", "1"))
+        hash_memory = int(os.getenv("STOCKFISH_HASH", "512"))
+        depth = int(os.getenv("STOCKFISH_DEPTH", "18"))
+                
         engine.configure({"Threads": threads, "Hash": hash_memory})
-        depth = int(os.getenv("STOCKFISH_DEPTH", "20"))
         nodes = int(os.getenv("STOCKFISH_NODES", "0"))
         analysis_limit = chess.engine.Limit(nodes=nodes) if nodes > 0 else chess.engine.Limit(depth=depth)
         tactical_depth = int(os.getenv("STOCKFISH_TACTICAL_DEPTH", str(depth + 4)))

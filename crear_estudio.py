@@ -192,8 +192,10 @@ def crear_estudio_desde_txt():
             match = re.search(r'"chapters":\s*\[\{"id":"([^"]+)"', html_resp)
             if match:
                 chapter_id_vacio = match.group(1)
-        except Exception:
-            pass
+            else:
+                print("[Debug] Regex de chapter_id no encontró coincidencias en el HTML de Lichess.")
+        except Exception as e:
+            print(f"[Debug] Falló la petición HTTP para leer el estudio: {e}")
     
     # ===================================
     # PASO 3: Importar PGN con el analisis
@@ -223,19 +225,23 @@ def crear_estudio_desde_txt():
             print(f"[Aviso] No se pudo borrar el capitulo vacio: {e.code}")
     
     study_url = f"https://lichess.org/study/{study_id}"
+    if lichess_cookie:
+        import base64
+        encoded_cookie = urllib.parse.quote(base64.b64encode(lichess_cookie.encode('utf-8')).decode('utf-8'))
+        study_url += f"?agy_cookie={encoded_cookie}"
     
     # ==============================================
     # PASO 5: Abrir estudio en el navegador
     # ==============================================
-    print(f"\n[Ok] Estudio creado correctamente: {study_url}")
-    print(f"\n[Info] La UI de Tampermonkey leerá las evaluaciones locales del PGN; no se solicita análisis al servidor de Lichess.")
+    clean_url = f"https://lichess.org/study/{study_id}"
+    print(f"\n[Ok] Estudio creado correctamente: {clean_url}")
     print(f"\n[Info] Si tienes instalado el script opcional de Tampermonkey, el estudio de Lichess con la partida se abrirá en tu navegador habitual directamente.")
     
     import webbrowser
     webbrowser.open(study_url)
     
     print(f"\n[Ok] ¡Estudio completado con exito!")
-    print(f"[Ok] URL: {study_url}")
+    print(f"[Ok] URL: {clean_url}")
 
 if __name__ == "__main__":
     crear_estudio_desde_txt()

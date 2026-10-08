@@ -45,8 +45,6 @@ El script generará automáticamente un archivo `.env` la primera vez que lo eje
 ```env
 CHESSCOM_PLAYER=tu_usuario_en_chess.com
 LICHESS_TOKEN=tu_token_api_de_lichess_aqui
-LICHESS_USERNAME=tu_usuario_o_email
-LICHESS_PASSWORD=tu_contraseña
 LICHESS_COOKIE=tu_cookie_lila2_aqui (Opcional, el script puede extraerla de tu navegador)
 GEMINI_API_KEY=tu_clave_api_de_gemini
 GEMINI_API_KEY_1=tu_clave_api_alternativa_1 (Opcional, se usará si la principal agota su cuota)

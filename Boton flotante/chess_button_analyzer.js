@@ -6,7 +6,8 @@
 // @author       Victor
 // @match        *://*.chess.com/game/*
 // @match        https://lichess.org/study/*
-// @grant        none
+// @grant        GM_setValue
+// @grant        GM_getValue
 // ==/UserScript==
 
 (function () {
@@ -32,15 +33,621 @@
             button.style.transform = 'scale(1)';
             button.style.backgroundColor = '#7fa650';
         });
+
         button.addEventListener('click', () => {
-            window.location.href = `ajedrez://${window.location.href}`;
+            if (document.getElementById('agy-analysis-modal')) return;
+
+            // Load saved settings or defaults
+            const getSaved = (key, def) => {
+                const val = localStorage.getItem('agy_' + key);
+                return val !== null ? val : def;
+            };
+
+            // Find current game players and try to guess White
+            const players = new Set();
+            document.querySelectorAll('[data-test-element="user-tagline-username"], .user-username-component').forEach(el => {
+                if (el.textContent.trim()) players.add(el.textContent.trim());
+            });
+            const playerArray = Array.from(players);
+
+            // Heuristic to find white: bottom player is usually white unless flipped, but let's just default to the first player if unsure
+            let whitePlayer = playerArray.length > 0 ? playerArray[0] : '';
+            const bottomPlayerEl = document.querySelector('.board-layout-bottom [data-test-element="user-tagline-username"], .board-layout-bottom .user-username-component');
+            if (bottomPlayerEl && bottomPlayerEl.textContent.trim()) {
+                whitePlayer = bottomPlayerEl.textContent.trim();
+            }
+            const blackPlayer = playerArray.find(p => p !== whitePlayer) || '';
+
+            let p_player = getSaved('chesscom_player', '');
+            let p_depth = getSaved('stockfish_depth', '18');
+            let p_model = getSaved('gemini_model', 'gemini-flash-lite-latest');
+            let p_threads = getSaved('stockfish_threads', '1');
+            let p_hash = getSaved('stockfish_hash', '512');
+
+            // Secret fields
+            let lichess_username = getSaved('lichess_username', '');
+            let lichess_password = getSaved('lichess_password', '');
+            let lichess_token = getSaved('lichess_token', '');
+            
+            let lichess_cookie = '';
+            if (typeof GM_getValue !== 'undefined') {
+                lichess_cookie = GM_getValue('agy_lichess_cookie', getSaved('lichess_cookie', ''));
+            } else {
+                lichess_cookie = getSaved('lichess_cookie', '');
+            }
+
+            let gemini_keys = [];
+            for (let i = 0; i <= 10; i++) {
+                let keyName = i === 0 ? 'gemini_api_key' : `gemini_api_key_${i}`;
+                let keyVal = getSaved(keyName, '');
+                if (keyVal) gemini_keys.push(keyVal);
+            }
+            if (gemini_keys.length === 0) gemini_keys.push(''); // ensure at least one input
+
+            let defaultTarget = whitePlayer;
+            if (p_player && playerArray.includes(p_player)) {
+                defaultTarget = p_player;
+            }
+
+            // Create Modal Overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'agy-analysis-modal';
+            Object.assign(overlay.style, {
+                position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+                backgroundColor: 'rgba(0,0,0,0.6)', zIndex: '9999999',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Helvetica, Arial, sans-serif'
+            });
+
+            const styleNode = document.createElement('style');
+            styleNode.textContent = `
+                #agy-analysis-modal * { scrollbar-color: #bababa #262421 !important; scrollbar-width: thin !important; }
+                #agy-analysis-modal ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+                #agy-analysis-modal ::-webkit-scrollbar-track { background: #262421 !important; }
+                #agy-analysis-modal ::-webkit-scrollbar-thumb { background: #bababa !important; border-radius: 4px !important; }
+                #agy-analysis-modal ::-webkit-scrollbar-thumb:hover { background: #fff !important; }
+            `;
+            overlay.appendChild(styleNode);
+
+            const modal = document.createElement('div');
+            Object.assign(modal.style, {
+                backgroundColor: '#262421', color: '#bababa', borderRadius: '10px',
+                width: '450px', maxHeight: '90vh', boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+                position: 'relative', overflow: 'hidden', display: 'flex'
+            });
+
+            const closeBtn = document.createElement('div');
+            closeBtn.innerHTML = '✖';
+            Object.assign(closeBtn.style, {
+                position: 'absolute', top: '15px', right: '15px', cursor: 'pointer',
+                fontSize: '18px', color: '#888', transition: 'color 0.2s', zIndex: '20'
+            });
+            closeBtn.onmouseenter = () => closeBtn.style.color = '#fff';
+            closeBtn.onmouseleave = () => closeBtn.style.color = '#888';
+            closeBtn.onclick = () => overlay.remove();
+
+            const inputStyle = `
+                width: 100%; box-sizing: border-box; padding: 10px; margin-top: 5px;
+                background-color: #121110; border: 1px solid #403d39; color: #fff;
+                border-radius: 5px; font-size: 14px; outline: none;
+            `;
+
+            // ----- Main View -----
+            const mainView = document.createElement('div');
+            Object.assign(mainView.style, {
+                padding: '30px', transition: 'transform 0.3s ease', width: '100%',
+                flexShrink: 0, overflowY: 'auto'
+            });
+
+            mainView.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 25px; gap: 10px;">
+                    <span style="font-size: 40px;">🤖</span>
+                    <h2 style="margin: 0; color: #fff; font-size: 28px;">Analizar partida con IA</h2>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="font-weight: bold; color: #fff;">Jugador Objetivo:</label>
+                    <select id="modal-target" style="${inputStyle}">
+                        ${playerArray.map(p => `<option value="${p}" ${p === defaultTarget ? 'selected' : ''}>${p}</option>`).join('')}
+                    </select>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label style="font-weight: bold; color: #fff;">Profundidad de Stockfish:</label>
+                        <span id="modal-depth-val" style="color: #fff; font-weight: bold;">${p_depth}</span>
+                    </div>
+                    <input type="range" id="modal-depth" min="1" max="30" value="${p_depth}" style="width: 100%; margin-top: 10px; cursor: pointer;">
+                </div>
+                <div style="margin-bottom: 30px;">
+                    <label style="font-weight: bold; color: #fff;">Modelo de IA:</label>
+                    <select id="modal-model" style="${inputStyle}">
+                        <option value="">Configura la GEMINI_API_KEY</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: center; align-items: center; position: relative; margin-top: 20px;">
+                    <button id="modal-start" disabled style="background-color: #81b64c; color: #fff; border: none; padding: 12px 32px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231; opacity: 0.5;">
+                        INICIAR
+                    </button>
+                    <div id="modal-gear" style="cursor: pointer; padding: 5px; position: absolute; right: 0;" title="Configuración">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#bababa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </div>
+                </div>
+            `;
+
+            // ----- Settings View -----
+            const settingsView = document.createElement('div');
+            Object.assign(settingsView.style, {
+                padding: '30px 0 0 30px', position: 'absolute', top: '0', left: '100%',
+                width: '100%', height: '100%', boxSizing: 'border-box',
+                backgroundColor: '#262421', transition: 'left 0.3s ease',
+                display: 'flex', flexDirection: 'column', overflow: 'hidden'
+            });
+
+            // Helper to generate secret inputs with eye toggles
+            const eyeOpenSvg = `<svg class="eye-open" style="display:none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+            const eyeClosedSvg = `<svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+            const makeSecretInput = (id, label, value) => `
+                <div style="margin-bottom: 15px; position: relative;">
+                    <label style="font-weight: bold; color: #fff;">${label}:</label>
+                    <div style="position: relative;">
+                        <input type="password" id="${id}" value="${value}" style="${inputStyle} padding-right: 35px;">
+                        <div class="toggle-eye" data-target="${id}" style="position: absolute; right: 10px; top: 15px; cursor: pointer; color: #bababa;">
+                            ${eyeOpenSvg}
+                            ${eyeClosedSvg}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            settingsView.innerHTML = `
+                <div style="display: flex; align-items: center; margin-bottom: 20px; padding-right: 30px; flex-shrink: 0;">
+                    <div id="modal-back" style="cursor: pointer; margin-right: 15px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#bababa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                    </div>
+                    <h3 style="margin: 0; color: #fff;">Configuración Base</h3>
+                </div>
+                
+                <div style="flex: 1; overflow-y: auto; padding-right: 20px; padding-bottom: 30px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <div style="flex: 1;">
+                            <label style="font-weight: bold; color: #fff;">Hilos Stockfish:</label>
+                            <input type="number" id="modal-threads" min="1" max="128" value="${p_threads}" style="${inputStyle}">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-weight: bold; color: #fff;">Hash (MB):</label>
+                            <input type="number" id="modal-hash" min="16" max="32768" value="${p_hash}" style="${inputStyle}">
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-weight: bold; color: #fff;">Jugador Chess.com (defecto):</label>
+                        <input type="text" id="modal-player" value="${p_player}" style="${inputStyle}">
+                    </div>
+                    ${makeSecretInput('modal-lichess-token', 'Token de Lichess', lichess_token)}
+                    ${makeSecretInput('modal-lichess-cookie', 'Cookie de Lichess (opcional)', lichess_cookie)}
+                    
+                    <div id="gemini-keys-container">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <label style="font-weight: bold; color: #fff;">GEMINI_API_KEY(s):</label>
+                        </div>
+                        ${gemini_keys.map((k, i) => `
+                            <div style="margin-top: 5px; display: flex; align-items: center;" class="gemini-key-row">
+                                <div style="position: relative; flex: 1; display: flex; align-items: center;">
+                                    <input type="password" value="${k}" style="${inputStyle} padding-right: 35px; width: 100%; margin-top: 0; box-sizing: border-box;">
+                                    <div class="toggle-eye" style="position: absolute; right: 10px; cursor: pointer; color: #bababa; display: flex; align-items: center;">
+                                        ${eyeOpenSvg}
+                                        ${eyeClosedSvg}
+                                    </div>
+                                </div>
+                                ${i === 0 ? `<button id="add-gemini-btn" style="margin-left: 10px; background-color: #81b64c; color: #fff; border: none; border-radius: 4px; width: 35px; height: 35px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231; font-weight: bold; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; ${gemini_keys.length >= 10 ? 'opacity: 0.5; cursor: not-allowed;' : ''}" ${gemini_keys.length >= 10 ? 'disabled' : ''}>+</button>`
+                    : `<button class="remove-gemini-btn" style="margin-left: 10px; background-color: #d8504f; color: #fff; border: none; border-radius: 4px; width: 35px; height: 35px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b; font-weight: bold; font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center;">-</button>`}
+                            </div>
+                        `).join('')}
+                    </div>
+    
+                    <div style="display: flex; justify-content: center; gap: 15px; align-items: center; margin-top: 30px;">
+                        <button id="modal-save" style="background-color: #81b64c; color: #fff; border: none; padding: 12px 32px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231;">
+                            GUARDAR
+                        </button>
+                        <button id="modal-clear" style="background-color: #d8504f; color: #fff; border: none; padding: 12px 32px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b;">
+                            LIMPIAR
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            modal.appendChild(closeBtn);
+            modal.appendChild(mainView);
+            modal.appendChild(settingsView);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // API Logic
+            const loadModels = async (apiKey) => {
+                const modelSelect = document.getElementById('modal-model');
+                const startBtn = document.getElementById('modal-start');
+                if (!apiKey) {
+                    modelSelect.innerHTML = '<option value="">Configura la GEMINI_API_KEY</option>';
+                    startBtn.disabled = true;
+                    startBtn.style.opacity = '0.5';
+                    startBtn.style.cursor = 'not-allowed';
+                    return;
+                }
+
+                modelSelect.innerHTML = '<option value="">Cargando modelos...</option>';
+                startBtn.disabled = true;
+                startBtn.style.opacity = '0.5';
+                startBtn.style.cursor = 'wait';
+
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                    const data = await response.json();
+
+                    if (data.models && data.models.length > 0) {
+                        modelSelect.innerHTML = '';
+                        let hasFlashLite = false;
+
+                        data.models.forEach(m => {
+                            if (m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent') && !m.name.toLowerCase().includes('vision')) {
+                                const modelName = m.name.replace('models/', '');
+                                if (modelName === 'gemini-flash-lite-latest') hasFlashLite = true;
+
+                                const opt = document.createElement('option');
+                                opt.value = modelName;
+                                opt.text = modelName;
+                                modelSelect.appendChild(opt);
+                            }
+                        });
+
+                        if (modelSelect.options.length === 0) {
+                            modelSelect.innerHTML = '<option value="">Sin modelos válidos</option>';
+                            return;
+                        }
+
+                        // Select logic
+                        let modelToSelect = p_model;
+                        const optionValues = Array.from(modelSelect.options).map(o => o.value);
+
+                        if (!modelToSelect || !optionValues.includes(modelToSelect)) {
+                            modelToSelect = hasFlashLite ? 'gemini-flash-lite-latest' : optionValues[0];
+                        }
+                        modelSelect.value = modelToSelect;
+
+                        startBtn.disabled = false;
+                        startBtn.style.opacity = '1';
+                        startBtn.style.cursor = 'pointer';
+                    } else {
+                        modelSelect.innerHTML = '<option value="">Error cargando modelos</option>';
+                    }
+                } catch (e) {
+                    console.error("Error fetching Gemini models:", e);
+                    modelSelect.innerHTML = '<option value="">Error conexión API</option>';
+                }
+            };
+
+            // Trigger initial API load if key exists
+            const initialKey = gemini_keys[0];
+            loadModels(initialKey);
+
+            // Logic and Events
+            const depthRange = document.getElementById('modal-depth');
+            const depthVal = document.getElementById('modal-depth-val');
+            depthRange.addEventListener('input', (e) => {
+                depthVal.textContent = e.target.value;
+            });
+
+            // Button animations
+            ['modal-start', 'modal-save'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.onmouseenter = (e) => { if (!e.target.disabled) e.target.style.backgroundColor = '#8bc453'; };
+                btn.onmouseleave = (e) => { if (!e.target.disabled) e.target.style.backgroundColor = '#81b64c'; };
+                btn.onmousedown = (e) => {
+                    if (!e.target.disabled) {
+                        e.target.style.transform = 'translateY(2px)';
+                        e.target.style.boxShadow = '0 2px 0 #5a8231';
+                    }
+                };
+                btn.onmouseup = (e) => {
+                    if (!e.target.disabled) {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = '0 4px 0 #5a8231';
+                    }
+                };
+            });
+
+            const gearBtn = document.getElementById('modal-gear');
+            const backBtn = document.getElementById('modal-back');
+            gearBtn.onmouseenter = () => gearBtn.querySelector('svg').style.stroke = '#fff';
+            gearBtn.onmouseleave = () => gearBtn.querySelector('svg').style.stroke = '#bababa';
+            backBtn.onmouseenter = () => backBtn.querySelector('svg').style.stroke = '#fff';
+            backBtn.onmouseleave = () => backBtn.querySelector('svg').style.stroke = '#bababa';
+
+            gearBtn.onclick = () => {
+                mainView.style.transform = 'translateX(-100%)';
+                settingsView.style.left = '0';
+            };
+            backBtn.onclick = () => {
+                mainView.style.transform = 'translateX(0)';
+                settingsView.style.left = '100%';
+            };
+
+            // Eye toggles
+            settingsView.addEventListener('click', (e) => {
+                const eye = e.target.closest('.toggle-eye');
+                if (eye) {
+                    const input = eye.parentElement.querySelector('input');
+                    if (input) {
+                        input.type = input.type === 'password' ? 'text' : 'password';
+                        eye.style.color = input.type === 'text' ? '#fff' : '#bababa';
+                        eye.querySelector('.eye-open').style.display = input.type === 'text' ? 'block' : 'none';
+                        eye.querySelector('.eye-closed').style.display = input.type === 'password' ? 'block' : 'none';
+                    }
+                }
+
+                if (e.target.closest('#add-gemini-btn')) {
+                    const btn = document.getElementById('add-gemini-btn');
+                    const container = document.getElementById('gemini-keys-container');
+                    const rows = container.querySelectorAll('.gemini-key-row');
+                    if (rows.length < 10) {
+                        const newRow = document.createElement('div');
+                        newRow.className = 'gemini-key-row';
+                        newRow.style = "position: relative; margin-top: 5px; display: flex; align-items: center;";
+                        newRow.innerHTML = `
+                            <div style="position: relative; flex: 1; display: flex; align-items: center;">
+                                <input type="password" value="" style="${inputStyle} padding-right: 35px; width: 100%; margin-top: 0; box-sizing: border-box;">
+                                <div class="toggle-eye" style="position: absolute; right: 10px; cursor: pointer; color: #bababa; display: flex; align-items: center;">
+                                    ${eyeOpenSvg}
+                                    ${eyeClosedSvg}
+                                </div>
+                            </div>
+                            <button class="remove-gemini-btn" style="margin-left: 10px; background-color: #d8504f; color: #fff; border: none; border-radius: 4px; width: 35px; height: 35px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b; font-weight: bold; font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center;">-</button>
+                        `;
+                        container.appendChild(newRow);
+                        if (rows.length + 1 >= 10) {
+                            btn.disabled = true;
+                            btn.style.opacity = '0.5';
+                            btn.style.cursor = 'not-allowed';
+                        }
+                    }
+                }
+
+                if (e.target.closest('.remove-gemini-btn')) {
+                    e.target.closest('.gemini-key-row').remove();
+                    const btn = document.getElementById('add-gemini-btn');
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                }
+            });
+
+            // Make dynamic buttons react nicely
+            settingsView.addEventListener('mousedown', (e) => {
+                const btn = e.target.closest('button');
+                if (btn && !btn.disabled && (btn.id === 'add-gemini-btn' || btn.classList.contains('remove-gemini-btn'))) {
+                    btn.style.transform = 'translateY(2px)';
+                    const origShadow = btn.style.boxShadow;
+                    btn.dataset.origShadow = origShadow;
+                    btn.style.boxShadow = origShadow.replace('0px 4px', '0px 2px').replace('0 4px', '0 2px');
+                }
+            });
+            settingsView.addEventListener('mouseup', (e) => {
+                const btn = e.target.closest('button');
+                if (btn && !btn.disabled && (btn.id === 'add-gemini-btn' || btn.classList.contains('remove-gemini-btn'))) {
+                    btn.style.transform = 'translateY(0)';
+                    if (btn.dataset.origShadow) btn.style.boxShadow = btn.dataset.origShadow;
+                }
+            });
+
+            ['modal-settings-btn', 'modal-start', 'modal-save', 'modal-clear', 'modal-cancel'].forEach(id => {
+                const b = document.getElementById(id);
+                if (b) {
+                    b.addEventListener('mousedown', () => {
+                        b.style.transform = 'translateY(2px)';
+                        if (id === 'modal-start' || id === 'modal-save') b.style.boxShadow = '0 2px 0 #5a8231';
+                        else if (id === 'modal-clear') b.style.boxShadow = '0 0px 0 #a93c3b';
+                        else if (id === 'modal-cancel') b.style.boxShadow = '0 2px 0 #333';
+                    });
+                    b.addEventListener('mouseup', () => {
+                        b.style.transform = 'translateY(0)';
+                        if (id === 'modal-start' || id === 'modal-save') b.style.boxShadow = '0 4px 0 #5a8231';
+                        else if (id === 'modal-clear') b.style.boxShadow = '0 2px 0 #a93c3b';
+                        else if (id === 'modal-cancel') b.style.boxShadow = '0 4px 0 #333';
+                    });
+                    b.addEventListener('mouseleave', () => {
+                        b.style.transform = 'translateY(0)';
+                        if (id === 'modal-start' || id === 'modal-save') b.style.boxShadow = '0 4px 0 #5a8231';
+                        else if (id === 'modal-clear') b.style.boxShadow = '0 2px 0 #a93c3b';
+                        else if (id === 'modal-cancel') b.style.boxShadow = '0 4px 0 #333';
+                    });
+                }
+            });
+
+            document.getElementById('modal-clear').onclick = () => {
+                const confirmOverlay = document.createElement('div');
+                Object.assign(confirmOverlay.style, {
+                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(38,36,33,0.95)', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: '30px', boxSizing: 'border-box'
+                });
+                confirmOverlay.innerHTML = `
+                    <h3 style="color: #fff; text-align: center; margin-top: 0; margin-bottom: 20px; line-height: 1.4;">¿Estás seguro de que deseas borrar los datos?</h3>
+                    <div style="display: flex; gap: 15px;">
+                        <button id="confirm-no" style="background-color: #555; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 0 #333;">CANCELAR</button>
+                        <button id="confirm-yes" style="background-color: #d8504f; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 0 #a93c3b;">SÍ, BORRAR</button>
+                    </div>
+                `;
+                settingsView.appendChild(confirmOverlay);
+
+                ['confirm-no', 'confirm-yes'].forEach(id => {
+                    const btn = document.getElementById(id);
+                    btn.onmousedown = () => btn.style.transform = 'translateY(2px)';
+                    btn.onmouseup = () => btn.style.transform = 'translateY(0)';
+                    btn.onmouseleave = () => btn.style.transform = 'translateY(0)';
+                });
+
+                document.getElementById('confirm-no').onclick = () => confirmOverlay.remove();
+                document.getElementById('confirm-yes').onclick = () => {
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.startsWith('agy_')) localStorage.removeItem(key);
+                    });
+
+                    document.getElementById('modal-threads').value = 1;
+                    document.getElementById('modal-hash').value = 512;
+                    document.getElementById('modal-player').value = '';
+                    document.getElementById('modal-lichess-token').value = '';
+                    document.getElementById('modal-lichess-cookie').value = '';
+                    
+                    const depthEl = document.getElementById('modal-depth');
+                    const depthValEl = document.getElementById('modal-depth-val');
+                    if(depthEl) depthEl.value = 18;
+                    if(depthValEl) depthValEl.textContent = '18';
+
+                    const container = document.getElementById('gemini-keys-container');
+                    if (container) {
+                        const rows = container.querySelectorAll('.gemini-key-row');
+                        rows.forEach((row, idx) => {
+                            if (idx === 0) row.querySelector('input').value = '';
+                            else row.remove();
+                        });
+                        const addBtn = document.getElementById('add-gemini-btn');
+                        if (addBtn) {
+                            addBtn.disabled = false;
+                            addBtn.style.opacity = '1';
+                            addBtn.style.cursor = 'pointer';
+                        }
+                    }
+
+                    confirmOverlay.remove();
+                };
+            };
+
+            document.getElementById('modal-save').onclick = () => {
+                const newPlayer = document.getElementById('modal-player').value;
+                const targetPlayer = document.getElementById('modal-target').value;
+                const depth = document.getElementById('modal-depth').value;
+                const model = document.getElementById('modal-model').value;
+
+                localStorage.setItem('agy_stockfish_depth', depth);
+                localStorage.setItem('agy_gemini_model', model);
+                localStorage.setItem('agy_chesscom_player', targetPlayer);
+                
+                // If they provided a fallback in settings, maybe save it too? 
+                // Actually the script uses newPlayer if they update the default.
+                // We'll leave newPlayer in 'agy_chesscom_player' alone, wait! 
+                // 'agy_chesscom_player' is used for BOTH. Let's just save newPlayer there if it was modified.
+                if(newPlayer) localStorage.setItem('agy_chesscom_player', newPlayer);
+
+                localStorage.setItem('agy_stockfish_threads', document.getElementById('modal-threads').value);
+                localStorage.setItem('agy_stockfish_hash', document.getElementById('modal-hash').value);
+
+                localStorage.setItem('agy_lichess_token', document.getElementById('modal-lichess-token').value);
+                
+                const cookieVal = document.getElementById('modal-lichess-cookie').value;
+                if (typeof GM_setValue !== 'undefined') {
+                    GM_setValue('agy_lichess_cookie', cookieVal);
+                }
+                localStorage.setItem('agy_lichess_cookie', cookieVal);
+
+                const keyRows = document.querySelectorAll('.gemini-key-row input');
+                let firstKey = '';
+                // Clear old keys
+                for (let i = 0; i < 10; i++) {
+                    localStorage.removeItem(i === 0 ? 'agy_gemini_api_key' : `agy_gemini_api_key_${i}`);
+                }
+
+                keyRows.forEach((input, index) => {
+                    if (input.value) {
+                        if (!firstKey) firstKey = input.value;
+                        const k = index === 0 ? 'gemini_api_key' : `gemini_api_key_${index}`;
+                        localStorage.setItem('agy_' + k, input.value);
+                    }
+                });
+
+                // Update the target select if the user changed the default player
+                const targetSelect = document.getElementById('modal-target');
+                if (newPlayer && Array.from(targetSelect.options).some(o => o.value === newPlayer)) {
+                    targetSelect.value = newPlayer;
+                }
+
+                // Trigger model load if key changed or was just saved
+                loadModels(firstKey);
+
+                backBtn.onclick();
+            };
+
+            document.getElementById('modal-start').onclick = () => {
+                if (document.getElementById('modal-start').disabled) return;
+
+                // Save main view settings
+                const targetPlayer = document.getElementById('modal-target').value;
+                const depth = document.getElementById('modal-depth').value;
+                const model = document.getElementById('modal-model').value;
+
+                localStorage.setItem('agy_stockfish_depth', depth);
+                localStorage.setItem('agy_gemini_model', model);
+                localStorage.setItem('agy_chesscom_player', targetPlayer);
+
+                // Construct full configuration payload
+                const configData = {
+                    CHESSCOM_PLAYER: targetPlayer,
+                    STOCKFISH_DEPTH: depth,
+                    GEMINI_MODEL: model,
+                    STOCKFISH_THREADS: document.getElementById('modal-threads').value,
+                    STOCKFISH_HASH: document.getElementById('modal-hash').value,
+                    LICHESS_TOKEN: document.getElementById('modal-lichess-token').value,
+                    LICHESS_COOKIE: document.getElementById('modal-lichess-cookie').value
+                };
+
+                const keyRows = document.querySelectorAll('.gemini-key-row input');
+                keyRows.forEach((input, index) => {
+                    if (input.value) {
+                        const k = index === 0 ? 'GEMINI_API_KEY' : `GEMINI_API_KEY_${index}`;
+                        configData[k] = input.value;
+                    }
+                });
+
+                // Base64 encode JSON and make it URL safe
+                const payloadBase64 = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(configData)))));
+                
+                // Usamos solo origin y pathname para evitar que # o ? previos corrompan el payload
+                const baseUrl = window.location.origin + window.location.pathname;
+                const uri = `ajedrez://${baseUrl}?payload=${payloadBase64}`;
+                window.location.href = uri;
+                overlay.remove();
+            };
         });
+
         document.body.appendChild(button);
         return;
     }
 
+
     // Se pinta la interfaz local al abrir el estudio final de Lichess.
     if (!currentUrl.includes('lichess.org/study/')) return;
+
+    // Recuperar LICHESS_COOKIE si viene del script de extraccion (main.py -> crear_estudio.py)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('agy_cookie')) {
+        try {
+            const decodedCookie = decodeURIComponent(escape(atob(urlParams.get('agy_cookie'))));
+            if (typeof GM_setValue !== 'undefined') {
+                GM_setValue('agy_lichess_cookie', decodedCookie);
+            }
+            localStorage.setItem('agy_lichess_cookie', decodedCookie);
+
+            // Limpiar la URL para que no quede colgando el chorro en base64
+            const newUrl = window.location.href.split('?')[0];
+            window.history.replaceState({}, document.title, newUrl);
+        } catch (e) {
+            console.error('Error procesando agy_cookie', e);
+        }
+    }
 
     // Se cambian aquí los símbolos textuales de cada clasificación.
     const MOVE_TYPES = {

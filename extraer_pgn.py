@@ -49,7 +49,7 @@ def extraer_pgn_chesscom(url):
                 print("\n[Ok] PGN Extraido desde la ventana de compartir!\n")
                 print(pgn)
             except Exception as e:
-                print("[Error] Tampoco se pudo extraer desde la interfaz de compartir.")
+                print(f"[Error] Tampoco se pudo extraer desde la interfaz de compartir. Detalles: {e}")
                 pgn = None
                 
         browser.close()
