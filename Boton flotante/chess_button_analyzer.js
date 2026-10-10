@@ -68,7 +68,7 @@
             let lichess_username = getSaved('lichess_username', '');
             let lichess_password = getSaved('lichess_password', '');
             let lichess_token = getSaved('lichess_token', '');
-            
+
             let lichess_cookie = '';
             if (typeof GM_getValue !== 'undefined') {
                 lichess_cookie = GM_getValue('agy_lichess_cookie', getSaved('lichess_cookie', ''));
@@ -124,7 +124,10 @@
             });
             closeBtn.onmouseenter = () => closeBtn.style.color = '#fff';
             closeBtn.onmouseleave = () => closeBtn.style.color = '#888';
-            closeBtn.onclick = () => overlay.remove();
+            closeBtn.onclick = () => {
+                overlay.remove();
+                fetch('http://localhost:8765/exit', { method: 'POST' }).catch(() => { });
+            };
 
             const inputStyle = `
                 width: 100%; box-sizing: border-box; padding: 10px; margin-top: 5px;
@@ -159,12 +162,15 @@
                 </div>
                 <div style="margin-bottom: 30px;">
                     <label style="font-weight: bold; color: #fff;">Modelo de IA:</label>
-                    <select id="modal-model" style="${inputStyle}">
-                        <option value="">Configura la GEMINI_API_KEY</option>
-                    </select>
+                    <div style="display: flex; align-items: center; margin-top: 5px;">
+                        <select id="modal-model" style="${inputStyle} margin-top: 0; flex: 1;">
+                            <option value="">Configura la GEMINI_API_KEY</option>
+                        </select>
+                        <div id="modal-model-status" style="margin-left: 10px; width: 24px; display: flex; justify-content: center; align-items: center; font-size: 18px;" title="Estado del modelo"></div>
+                    </div>
                 </div>
                 <div style="display: flex; justify-content: center; align-items: center; position: relative; margin-top: 20px;">
-                    <button id="modal-start" disabled style="background-color: #81b64c; color: #fff; border: none; padding: 12px 32px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231; opacity: 0.5;">
+                    <button id="modal-start" style="background-color: #81b64c; color: #fff; border: none; padding: 12px 32px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231;">
                         INICIAR
                     </button>
                     <div id="modal-gear" style="cursor: pointer; padding: 5px; position: absolute; right: 0;" title="Configuración">
@@ -192,12 +198,15 @@
             const makeSecretInput = (id, label, value) => `
                 <div style="margin-bottom: 15px; position: relative;">
                     <label style="font-weight: bold; color: #fff;">${label}:</label>
-                    <div style="position: relative;">
-                        <input type="password" id="${id}" value="${value}" style="${inputStyle} padding-right: 35px;">
-                        <div class="toggle-eye" data-target="${id}" style="position: absolute; right: 10px; top: 15px; cursor: pointer; color: #bababa;">
-                            ${eyeOpenSvg}
-                            ${eyeClosedSvg}
+                    <div style="display: flex; align-items: center; margin-top: 5px;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="password" id="${id}" value="${value}" style="${inputStyle} padding-right: 35px; margin-top: 0; box-sizing: border-box;">
+                            <div class="toggle-eye" data-target="${id}" style="position: absolute; right: 10px; top: 10px; cursor: pointer; color: #bababa; display: flex; align-items: center;">
+                                ${eyeOpenSvg}
+                                ${eyeClosedSvg}
+                            </div>
                         </div>
+                        <button type="button" class="info-btn" data-info="${id}" style="margin-left: 10px; margin-bottom: 3px; background-color: #3b82f6; color: #fff; border: none; border-radius: 4px; width: 33px; height: 33px; padding-bottom: 4px; box-sizing: border-box; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #2563eb; font-weight: bold; font-size: 18px; font-family: serif; font-style: italic; line-height: 1; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">i</button>
                     </div>
                 </div>
             `;
@@ -229,7 +238,7 @@
                         <input type="text" id="modal-player" value="${p_player}" style="${inputStyle}">
                     </div>
                     ${makeSecretInput('modal-lichess-token', 'Token de Lichess', lichess_token)}
-                    ${makeSecretInput('modal-lichess-cookie', 'Cookie de Lichess (opcional)', lichess_cookie)}
+                    ${makeSecretInput('modal-lichess-cookie', 'Cookie de Lichess', lichess_cookie)}
                     
                     <div id="gemini-keys-container">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -244,8 +253,8 @@
                                         ${eyeClosedSvg}
                                     </div>
                                 </div>
-                                ${i === 0 ? `<button id="add-gemini-btn" style="margin-left: 10px; background-color: #81b64c; color: #fff; border: none; border-radius: 4px; width: 35px; height: 35px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231; font-weight: bold; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; ${gemini_keys.length >= 10 ? 'opacity: 0.5; cursor: not-allowed;' : ''}" ${gemini_keys.length >= 10 ? 'disabled' : ''}>+</button>`
-                    : `<button class="remove-gemini-btn" style="margin-left: 10px; background-color: #d8504f; color: #fff; border: none; border-radius: 4px; width: 35px; height: 35px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b; font-weight: bold; font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center;">-</button>`}
+                                ${i === 0 ? `<button id="add-gemini-btn" style="margin-left: 10px; margin-bottom: 3px; background-color: #81b64c; color: #fff; border: none; border-radius: 4px; width: 33px; height: 33px; padding-bottom: 4px; box-sizing: border-box; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #5a8231; font-weight: bold; font-size: 22px; line-height: 1; display: flex; align-items: center; justify-content: center; ${gemini_keys.length >= 10 ? 'opacity: 0.5; cursor: not-allowed;' : ''}" ${gemini_keys.length >= 10 ? 'disabled' : ''}>+</button>`
+                    : `<button class="remove-gemini-btn" style="margin-left: 10px; margin-bottom: 3px; background-color: #d8504f; color: #fff; border: none; border-radius: 4px; width: 33px; height: 33px; padding-bottom: 4px; box-sizing: border-box; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b; font-weight: bold; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center;">-</button>`}
                             </div>
                         `).join('')}
                     </div>
@@ -261,28 +270,147 @@
                 </div>
             `;
 
+            // ----- Progress View -----
+            const progressView = document.createElement('div');
+            Object.assign(progressView.style, {
+                padding: '30px', position: 'absolute', top: '0', left: '100%',
+                width: '100%', height: '100%', boxSizing: 'border-box',
+                backgroundColor: '#262421', transition: 'left 0.3s ease',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+            });
+
+            progressView.innerHTML = `
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <span style="font-size: 40px; display: inline-block; animation: float 3s ease-in-out infinite;">🤖</span>
+                    <h2 style="margin: 10px 0 0; color: #fff; font-size: 24px;">Analizando partida con IA</h2>
+                </div>
+                
+                <div id="progress-spinner-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px;">
+                    <div class="loader" style="width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.1); border-left-color: #81b64c; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;"></div>
+                    <div id="progress-text" style="color: #bababa; font-size: 16px; font-weight: bold; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">Iniciando proceso local...</div>
+                    <div id="progress-subtext" style="color: #888; font-size: 14px; margin-top: 5px; text-align: center; white-space: normal; word-break: break-word; max-width: 100%; padding: 0 10px;"></div>
+                </div>
+
+                <div id="progress-interactive" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+                    <div id="progress-question" style="color: #fff; font-size: 16px; font-weight: bold; margin-bottom: 20px; text-align: center; max-width: 90%;"></div>
+                    <div style="display: flex; gap: 15px;" id="progress-buttons">
+                        <button id="btn-yes" style="background-color: #81b64c; color: #fff; border: none; padding: 10px 30px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 0 #5a8231;">SÍ</button>
+                        <button id="btn-no" style="background-color: #d8504f; color: #fff; border: none; padding: 10px 30px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 0 #a93c3b;">NO</button>
+                    </div>
+                    <form id="prog-input-form" style="display: none; width: 100%; max-width: 300px; display: flex;">
+                        <input type="text" id="prog-input" autocomplete="off" style="flex: 1; padding: 10px; border-radius: 6px 0 0 6px; border: 1px solid #403d39; background: #121110; color: #fff; outline: none; font-family: monospace;">
+                        <button type="submit" style="background-color: #81b64c; color: #fff; border: none; padding: 10px 20px; border-radius: 0 6px 6px 0; font-weight: bold; cursor: pointer;">ENVIAR</button>
+                    </form>
+                </div>
+                <style>
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+                </style>
+            `;
+
+            const sendInput = async (val) => {
+                try {
+                    await fetch('http://localhost:8765/input', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ input: val })
+                    });
+                    progressView.querySelector('#progress-interactive').style.display = 'none';
+                    progressView.querySelector('#progress-spinner-container').style.display = 'flex';
+                    progressView.querySelector('#progress-text').textContent = "Reanudando proceso...";
+                } catch (err) {
+                    console.error("Error al enviar input a Python:", err);
+                }
+            };
+
+            progressView.querySelector('#btn-yes').addEventListener('click', () => sendInput('s'));
+            progressView.querySelector('#btn-no').addEventListener('click', () => sendInput('n'));
+            progressView.querySelector('#prog-input-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const textInput = progressView.querySelector('#prog-input');
+                if (textInput.value) {
+                    sendInput(textInput.value);
+                    textInput.value = '';
+                }
+            });
+
+            progressView.addEventListener('mousedown', (e) => {
+                const btn = e.target.closest('button');
+                if (btn && !btn.disabled) {
+                    btn.style.transform = 'translateY(2px)';
+                    const origShadow = btn.style.boxShadow;
+                    if (!btn.dataset.origShadow && origShadow) btn.dataset.origShadow = origShadow;
+                    if (origShadow) btn.style.boxShadow = origShadow.replace('0px 4px', '0px 2px').replace('0 4px', '0 2px');
+                }
+            });
+            const resetProgBtn = (e) => {
+                const btn = e.target.closest('button');
+                if (btn && !btn.disabled) {
+                    btn.style.transform = 'translateY(0)';
+                    if (btn.dataset.origShadow) btn.style.boxShadow = btn.dataset.origShadow;
+                }
+            };
+            progressView.addEventListener('mouseup', resetProgBtn);
+            progressView.addEventListener('mouseout', (e) => {
+                if (e.target.tagName === 'BUTTON') resetProgBtn(e);
+            });
+
+            // Ocultar form por defecto tras inyectar el HTML
+            progressView.querySelector('#prog-input-form').style.display = 'none';
+
             modal.appendChild(closeBtn);
             modal.appendChild(mainView);
             modal.appendChild(settingsView);
+            modal.appendChild(progressView);
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
 
             // API Logic
+            const checkModelStatus = async (selectEl, statusEl) => {
+                if (!selectEl || !statusEl) return;
+                const modelName = selectEl.value;
+                const apiKey = typeof gemini_keys !== 'undefined' ? gemini_keys[0] : null;
+                if (!modelName || !apiKey) {
+                    statusEl.innerHTML = '';
+                    return;
+                }
+                statusEl.innerHTML = '<div class="loader" style="width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.1); border-left-color: #888; border-radius: 50%; animation: spin 1s linear infinite;"></div>';
+                statusEl.title = 'Comprobando modelo...';
+
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
+                    });
+                    if (res.ok) {
+                        statusEl.innerHTML = '<span style="color: #81b64c; font-weight: bold; font-size: 20px;">✓</span>';
+                        statusEl.title = 'Modelo apto y cuota disponible';
+                    } else {
+                        const errText = await res.text();
+                        if (errText.includes('429') || errText.includes('quota')) {
+                            statusEl.innerHTML = '<span style="color: #d8504f; font-weight: bold; font-size: 18px;">✖</span>';
+                            statusEl.title = 'Cuota agotada';
+                        } else {
+                            statusEl.innerHTML = '<span style="color: #f59e0b; font-weight: bold; font-size: 18px;">!</span>';
+                            statusEl.title = 'Error del modelo';
+                        }
+                    }
+                } catch (e) {
+                    statusEl.innerHTML = '<span style="color: #d8504f; font-weight: bold; font-size: 18px;">✖</span>';
+                    statusEl.title = 'Error de conexión';
+                }
+            };
+
             const loadModels = async (apiKey) => {
                 const modelSelect = document.getElementById('modal-model');
-                const startBtn = document.getElementById('modal-start');
+
                 if (!apiKey) {
                     modelSelect.innerHTML = '<option value="">Configura la GEMINI_API_KEY</option>';
-                    startBtn.disabled = true;
-                    startBtn.style.opacity = '0.5';
-                    startBtn.style.cursor = 'not-allowed';
                     return;
                 }
 
                 modelSelect.innerHTML = '<option value="">Cargando modelos...</option>';
-                startBtn.disabled = true;
-                startBtn.style.opacity = '0.5';
-                startBtn.style.cursor = 'wait';
 
                 try {
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -317,10 +445,7 @@
                             modelToSelect = hasFlashLite ? 'gemini-flash-lite-latest' : optionValues[0];
                         }
                         modelSelect.value = modelToSelect;
-
-                        startBtn.disabled = false;
-                        startBtn.style.opacity = '1';
-                        startBtn.style.cursor = 'pointer';
+                        checkModelStatus(modelSelect, document.getElementById('modal-model-status'));
                     } else {
                         modelSelect.innerHTML = '<option value="">Error cargando modelos</option>';
                     }
@@ -334,12 +459,20 @@
             const initialKey = gemini_keys[0];
             loadModels(initialKey);
 
+            const modalModelEl = document.getElementById('modal-model');
+            const modalModelStatusEl = document.getElementById('modal-model-status');
+            if (modalModelEl && modalModelStatusEl) {
+                modalModelEl.addEventListener('change', () => checkModelStatus(modalModelEl, modalModelStatusEl));
+            }
+
             // Logic and Events
             const depthRange = document.getElementById('modal-depth');
             const depthVal = document.getElementById('modal-depth-val');
             depthRange.addEventListener('input', (e) => {
                 depthVal.textContent = e.target.value;
             });
+            const lichessTokenEl = document.getElementById('modal-lichess-token');
+            const lichessCookieEl = document.getElementById('modal-lichess-cookie');
 
             // Button animations
             ['modal-start', 'modal-save'].forEach(id => {
@@ -390,6 +523,53 @@
                     }
                 }
 
+                const infoBtn = e.target.closest('.info-btn');
+                if (infoBtn) {
+                    const targetId = infoBtn.dataset.info;
+
+                    const infoOverlay = document.createElement('div');
+                    Object.assign(infoOverlay.style, {
+                        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(38,36,33,0.95)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: '30px', boxSizing: 'border-box'
+                    });
+
+                    let instructions = '';
+                    if (targetId === 'modal-lichess-token') {
+                        instructions = `
+                            <p style="margin-top: 0; font-weight: bold; font-size: 14px; color: #fff;">Cómo obtener el Token de Lichess:</p>
+                            <ol style="padding-left: 20px; font-size: 13px; color: #ccc;">
+                                <li>Inicia sesión en Lichess.org</li>
+                                <li>Ve a Preferencias > API access tokens</li>
+                                <li>Haz clic en el botón <b style="color:#3b82f6">+</b> (Generate a new token)</li>
+                                <li>Dale los permisos de: <b>Read studies</b> y <b>Write studies</b></li>
+                                <li>Copia el token generado y pégalo aquí.</li>
+                            </ol>
+                        `;
+                    } else if (targetId === 'modal-lichess-cookie') {
+                        instructions = `
+                            <p style="margin-top: 0; font-weight: bold; font-size: 14px; color: #fff;">Cómo obtener la Cookie lila2:</p>
+                            <ol style="padding-left: 20px; font-size: 13px; color: #ccc;">
+                                <li>Abre Lichess.org y asegúrate de tener sesión iniciada.</li>
+                                <li>Pulsa <b>F12</b> para abrir herramientas de desarrollador.</li>
+                                <li>Ve a la pestaña <b>Application</b> (o Almacenamiento) > <b>Cookies</b>.</li>
+                                <li>Busca la cookie <b>'lila2'</b> y copia su valor.</li>
+                            </ol>
+                        `;
+                    }
+
+                    infoOverlay.innerHTML = `
+                        <div style="background: #1e1d1b; padding: 15px; border-radius: 6px; text-align: left; margin-bottom: 20px; width: 100%; max-width: 400px; box-sizing: border-box;">
+                            ${instructions}
+                        </div>
+                        <button id="info-btn-volver" style="background-color: #6b7280; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 0 #4b5563;">VOLVER</button>
+                    `;
+                    settingsView.appendChild(infoOverlay);
+
+                    const volverBtn = infoOverlay.querySelector('#info-btn-volver');
+                    volverBtn.onclick = () => infoOverlay.remove();
+                }
+
                 if (e.target.closest('#add-gemini-btn')) {
                     const btn = document.getElementById('add-gemini-btn');
                     const container = document.getElementById('gemini-keys-container');
@@ -406,7 +586,7 @@
                                     ${eyeClosedSvg}
                                 </div>
                             </div>
-                            <button class="remove-gemini-btn" style="margin-left: 10px; background-color: #d8504f; color: #fff; border: none; border-radius: 4px; width: 35px; height: 35px; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b; font-weight: bold; font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center;">-</button>
+                            <button class="remove-gemini-btn" style="margin-left: 10px; margin-bottom: 3px; background-color: #d8504f; color: #fff; border: none; border-radius: 4px; width: 33px; height: 33px; padding-bottom: 4px; box-sizing: border-box; cursor: pointer; transition: background-color 0.2s, transform 0.1s; box-shadow: 0 4px 0 #a93c3b; font-weight: bold; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center;">-</button>
                         `;
                         container.appendChild(newRow);
                         if (rows.length + 1 >= 10) {
@@ -429,19 +609,23 @@
             // Make dynamic buttons react nicely
             settingsView.addEventListener('mousedown', (e) => {
                 const btn = e.target.closest('button');
-                if (btn && !btn.disabled && (btn.id === 'add-gemini-btn' || btn.classList.contains('remove-gemini-btn'))) {
+                if (btn && !btn.disabled && (btn.id === 'add-gemini-btn' || btn.classList.contains('remove-gemini-btn') || btn.classList.contains('info-btn') || btn.id === 'info-btn-volver')) {
                     btn.style.transform = 'translateY(2px)';
                     const origShadow = btn.style.boxShadow;
-                    btn.dataset.origShadow = origShadow;
-                    btn.style.boxShadow = origShadow.replace('0px 4px', '0px 2px').replace('0 4px', '0 2px');
+                    if (!btn.dataset.origShadow && origShadow) btn.dataset.origShadow = origShadow;
+                    if (origShadow) btn.style.boxShadow = origShadow.replace('0px 4px', '0px 2px').replace('0 4px', '0 2px');
                 }
             });
-            settingsView.addEventListener('mouseup', (e) => {
+            const resetSetBtn = (e) => {
                 const btn = e.target.closest('button');
-                if (btn && !btn.disabled && (btn.id === 'add-gemini-btn' || btn.classList.contains('remove-gemini-btn'))) {
+                if (btn && !btn.disabled && (btn.id === 'add-gemini-btn' || btn.classList.contains('remove-gemini-btn') || btn.classList.contains('info-btn') || btn.id === 'info-btn-volver')) {
                     btn.style.transform = 'translateY(0)';
                     if (btn.dataset.origShadow) btn.style.boxShadow = btn.dataset.origShadow;
                 }
+            };
+            settingsView.addEventListener('mouseup', resetSetBtn);
+            settingsView.addEventListener('mouseout', (e) => {
+                if (e.target.tagName === 'BUTTON') resetSetBtn(e);
             });
 
             ['modal-settings-btn', 'modal-start', 'modal-save', 'modal-clear', 'modal-cancel'].forEach(id => {
@@ -502,11 +686,11 @@
                     document.getElementById('modal-player').value = '';
                     document.getElementById('modal-lichess-token').value = '';
                     document.getElementById('modal-lichess-cookie').value = '';
-                    
+
                     const depthEl = document.getElementById('modal-depth');
                     const depthValEl = document.getElementById('modal-depth-val');
-                    if(depthEl) depthEl.value = 18;
-                    if(depthValEl) depthValEl.textContent = '18';
+                    if (depthEl) depthEl.value = 18;
+                    if (depthValEl) depthValEl.textContent = '18';
 
                     const container = document.getElementById('gemini-keys-container');
                     if (container) {
@@ -536,18 +720,18 @@
                 localStorage.setItem('agy_stockfish_depth', depth);
                 localStorage.setItem('agy_gemini_model', model);
                 localStorage.setItem('agy_chesscom_player', targetPlayer);
-                
+
                 // If they provided a fallback in settings, maybe save it too? 
                 // Actually the script uses newPlayer if they update the default.
                 // We'll leave newPlayer in 'agy_chesscom_player' alone, wait! 
                 // 'agy_chesscom_player' is used for BOTH. Let's just save newPlayer there if it was modified.
-                if(newPlayer) localStorage.setItem('agy_chesscom_player', newPlayer);
+                if (newPlayer) localStorage.setItem('agy_chesscom_player', newPlayer);
 
                 localStorage.setItem('agy_stockfish_threads', document.getElementById('modal-threads').value);
                 localStorage.setItem('agy_stockfish_hash', document.getElementById('modal-hash').value);
 
                 localStorage.setItem('agy_lichess_token', document.getElementById('modal-lichess-token').value);
-                
+
                 const cookieVal = document.getElementById('modal-lichess-cookie').value;
                 if (typeof GM_setValue !== 'undefined') {
                     GM_setValue('agy_lichess_cookie', cookieVal);
@@ -582,13 +766,37 @@
             };
 
             document.getElementById('modal-start').onclick = () => {
-                if (document.getElementById('modal-start').disabled) return;
-
-                // Save main view settings
                 const targetPlayer = document.getElementById('modal-target').value;
                 const depth = document.getElementById('modal-depth').value;
                 const model = document.getElementById('modal-model').value;
+                const threads = document.getElementById('modal-threads').value;
+                const hash = document.getElementById('modal-hash').value;
+                const lichessToken = document.getElementById('modal-lichess-token').value;
+                const lichessCookie = document.getElementById('modal-lichess-cookie').value;
+                const apiKey = document.querySelector('.gemini-key-row input').value;
 
+                if (!targetPlayer || !depth || !model || model.startsWith('Error') || !threads || !hash || !lichessToken || !lichessCookie || !apiKey) {
+                    const warningOverlay = document.createElement('div');
+                    Object.assign(warningOverlay.style, {
+                        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(38,36,33,0.95)', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: '30px', boxSizing: 'border-box'
+                    });
+                    warningOverlay.innerHTML = `
+                        <h3 style="color: #fff; text-align: center; margin-top: 0; margin-bottom: 20px; line-height: 1.4;">Faltan campos por rellenar en el apartado de configuración.</h3>
+                        <button id="warning-btn-ok" style="background-color: #3b82f6; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 0 #2563eb;">ACEPTAR</button>
+                    `;
+                    mainView.appendChild(warningOverlay);
+
+                    const okBtn = warningOverlay.querySelector('#warning-btn-ok');
+                    okBtn.onmousedown = () => okBtn.style.transform = 'translateY(2px)';
+                    okBtn.onmouseup = () => okBtn.style.transform = 'translateY(0)';
+                    okBtn.onmouseleave = () => okBtn.style.transform = 'translateY(0)';
+                    okBtn.onclick = () => warningOverlay.remove();
+                    return;
+                }
+
+                // Save main view settings
                 localStorage.setItem('agy_stockfish_depth', depth);
                 localStorage.setItem('agy_gemini_model', model);
                 localStorage.setItem('agy_chesscom_player', targetPlayer);
@@ -614,12 +822,280 @@
 
                 // Base64 encode JSON and make it URL safe
                 const payloadBase64 = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(configData)))));
-                
+
                 // Usamos solo origin y pathname para evitar que # o ? previos corrompan el payload
                 const baseUrl = window.location.origin + window.location.pathname;
                 const uri = `ajedrez://${baseUrl}?payload=${payloadBase64}`;
                 window.location.href = uri;
-                overlay.remove();
+
+                // Transition to progress view instead of terminal view
+                mainView.style.transform = 'translateX(-100%)';
+                progressView.style.left = '0';
+
+                const progText = progressView.querySelector('#progress-text');
+                const progSubtext = progressView.querySelector('#progress-subtext');
+                const progInteractive = progressView.querySelector('#progress-interactive');
+                const progSpinner = progressView.querySelector('#progress-spinner-container');
+                const progQuestion = progressView.querySelector('#progress-question');
+
+                // Reset state in case this is a retry from the main menu
+                progSpinner.style.display = 'flex';
+                progInteractive.style.display = 'none';
+                progText.textContent = 'Iniciando proceso local...';
+                progSubtext.textContent = '';
+                progSubtext.style.color = '#888';
+                const oldModelContainer = progressView.querySelector('#prog-model-container');
+                if (oldModelContainer) oldModelContainer.remove();
+                const oldCookieView = progressView.querySelector('#manual-cookie-view');
+                if (oldCookieView) oldCookieView.remove();
+                const inputFormReset = progressView.querySelector('#prog-input-form');
+                if (inputFormReset) inputFormReset.style.display = 'none';
+                const btnGroupReset = progressView.querySelector('#progress-buttons');
+                if (btnGroupReset) btnGroupReset.style.display = 'none';
+
+                let currentStepStartTime = Date.now();
+                let currentStepBaseText = 'Iniciando proceso local...';
+                let currentMove = '';
+
+                const updateTimerText = () => {
+                    const elapsed = Math.floor((Date.now() - currentStepStartTime) / 1000);
+                    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const s = String(elapsed % 60).padStart(2, '0');
+
+                    if (currentStepBaseText.includes('Stockfish')) {
+                        progText.textContent = `[${m}:${s}] Analizando jugada ${currentMove || '...'} con Stockfish...`;
+                    } else {
+                        progText.textContent = `[${m}:${s}] ${currentStepBaseText}`;
+                    }
+                };
+
+                let stepTimerInterval = setInterval(updateTimerText, 1000);
+
+                let pollFailures = 0;
+                let lastLogCount = 0;
+
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const res = await fetch('http://localhost:8765/status');
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.logs && data.logs.length > lastLogCount) {
+                                const newLogs = data.logs.slice(lastLogCount);
+                                lastLogCount = data.logs.length;
+
+                                for (let log of newLogs) {
+                                    if (log.includes('PASO 1:')) { currentStepBaseText = 'Extrayendo PGN de la partida...'; currentStepStartTime = Date.now(); progSubtext.textContent = ''; updateTimerText(); }
+                                    else if (log.includes('PASO 2:')) { currentStepBaseText = 'Analizando movimientos con Stockfish...'; currentStepStartTime = Date.now(); progSubtext.textContent = ''; updateTimerText(); }
+                                    else if (log.includes('Analizando jugada')) {
+                                        const match = log.match(/jugada\s+(\d+\/\d+)/);
+                                        if (match) currentMove = match[1];
+                                        updateTimerText();
+                                    }
+                                    else if (log.includes('PASO 3:')) { currentStepBaseText = 'Generando comentarios con IA...'; currentStepStartTime = Date.now(); progSubtext.textContent = ''; updateTimerText(); }
+                                    else if (log.includes('PASO 4:')) { currentStepBaseText = 'Creando estudio interactivo...'; currentStepStartTime = Date.now(); progSubtext.textContent = ''; updateTimerText(); }
+                                    else if (log.includes('[Error]')) { progSubtext.textContent = log.trim(); progSubtext.style.color = '#d8504f'; }
+                                    else if (log.includes('[Aviso]')) { progSubtext.textContent = log.trim(); progSubtext.style.color = '#f59e0b'; }
+                                    else if (log.includes('[WEB_INPUT_REQUIRED]')) {
+                                        progSpinner.style.display = 'none';
+                                        progInteractive.style.display = 'flex';
+
+                                        const promptText = log.split('[WEB_INPUT_REQUIRED]')[1].trim();
+
+                                        const btnGroup = progressView.querySelector('#progress-buttons');
+                                        const inputForm = progressView.querySelector('#prog-input-form');
+                                        const inputEl = progressView.querySelector('#prog-input');
+                                        let manualCookieView = progressView.querySelector('#manual-cookie-view');
+
+                                        // Ocultar elementos interactivos previos
+                                        btnGroup.style.display = 'none';
+                                        inputForm.style.display = 'none';
+                                        if (manualCookieView) manualCookieView.style.display = 'none';
+
+                                        if (promptText.includes('[MODEL_SELECTION]')) {
+                                            const lastErrorMsg = progSubtext.textContent || "La IA no pudo procesar la solicitud.";
+                                            progQuestion.innerHTML = `Error al generar los comentarios con el modelo seleccionado:<br><span style="color: #f59e0b; font-weight: normal; font-size: 14px; display: inline-block; margin-top: 5px;">${lastErrorMsg}</span>`;
+                                            progQuestion.style.display = 'block';
+
+                                            const oldContainer = document.getElementById('prog-model-container');
+                                            if (oldContainer) oldContainer.remove();
+
+                                            const modelContainer = document.createElement('div');
+                                            modelContainer.id = 'prog-model-container';
+                                            Object.assign(modelContainer.style, { width: '100%', maxWidth: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center' });
+
+                                            const originalSelect = document.getElementById('modal-model');
+                                            const newSelect = originalSelect.cloneNode(true);
+                                            newSelect.value = originalSelect.value;
+                                            newSelect.id = 'prog-model-select';
+                                            Object.assign(newSelect.style, {
+                                                width: '100%', boxSizing: 'border-box', padding: '10px',
+                                                backgroundColor: '#121110', border: '1px solid #403d39',
+                                                color: '#fff', borderRadius: '5px', fontSize: '14px',
+                                                outline: 'none', margin: '0', flex: 1
+                                            });
+
+                                            const progModelStatus = document.createElement('div');
+                                            progModelStatus.id = 'prog-model-status';
+                                            Object.assign(progModelStatus.style, {
+                                                marginLeft: '10px', width: '24px', display: 'flex',
+                                                justifyContent: 'center', alignItems: 'center', fontSize: '18px'
+                                            });
+
+                                            const comboRow = document.createElement('div');
+                                            Object.assign(comboRow.style, {
+                                                display: 'flex', alignItems: 'center', width: '100%', marginBottom: '15px'
+                                            });
+                                            comboRow.appendChild(newSelect);
+                                            comboRow.appendChild(progModelStatus);
+
+                                            newSelect.addEventListener('change', () => checkModelStatus(newSelect, progModelStatus));
+                                            checkModelStatus(newSelect, progModelStatus);
+
+                                            const btnRow = document.createElement('div');
+                                            Object.assign(btnRow.style, { display: 'flex', gap: '15px', width: '100%' });
+
+                                            const createBtn = (text, bg, shadow, action) => {
+                                                const btn = document.createElement('button');
+                                                btn.textContent = text;
+                                                Object.assign(btn.style, {
+                                                    flex: 1, backgroundColor: bg, color: '#fff', border: 'none',
+                                                    padding: '12px', borderRadius: '6px', fontWeight: 'bold', fontSize: '14px',
+                                                    cursor: 'pointer', boxShadow: `0 4px 0 ${shadow}`, transition: 'transform 0.1s, box-shadow 0.1s'
+                                                });
+
+                                                btn.onclick = () => {
+                                                    fetch('http://localhost:8765/input', { method: 'POST', body: JSON.stringify({ input: action }) });
+                                                    if (action === 'SALIR') {
+                                                        progressView.style.left = '100%';
+                                                        mainView.style.transform = 'translateX(0)';
+                                                        clearInterval(stepTimerInterval);
+                                                        clearInterval(pollInterval);
+                                                        return;
+                                                    }
+                                                    progInteractive.style.display = 'none';
+                                                    progSpinner.style.display = 'flex';
+                                                    progSubtext.textContent = '';
+                                                };
+                                                return btn;
+                                            };
+
+                                            btnRow.appendChild(createBtn('Volver', '#6b7280', '#4b5563', 'SALIR'));
+
+                                            const btnReintentar = createBtn('Reintentar', '#81b64c', '#5a8231', '');
+                                            btnReintentar.onclick = () => {
+                                                fetch('http://localhost:8765/input', { method: 'POST', body: JSON.stringify({ input: newSelect.value }) });
+                                                progInteractive.style.display = 'none';
+                                                progSpinner.style.display = 'flex';
+                                                progSubtext.textContent = '';
+                                            };
+                                            btnRow.appendChild(btnReintentar);
+
+                                            modelContainer.appendChild(comboRow);
+                                            modelContainer.appendChild(btnRow);
+                                            progInteractive.appendChild(modelContainer);
+                                        } else if (promptText.includes('[MANUAL_COOKIE]')) {
+                                            progQuestion.textContent = "";
+                                            progQuestion.style.display = 'none';
+                                            if (!manualCookieView) {
+                                                const eyeOpenSvg = `<svg class="eye-open" style="display:none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+                                                const eyeClosedSvg = `<svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+                                                const mcHtml = `
+                                                    <div id="manual-cookie-view" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                                                        <div style="background: #1e1d1b; padding: 15px; border-radius: 6px; text-align: left; font-size: 13px; color: #ccc; margin-bottom: 10px; max-width: 400px; box-sizing: border-box; width: 100%;">
+                                                            <p style="margin-top: 0; color: #fff; font-weight: bold; font-size: 14px;">Instrucciones:</p>
+                                                            <ol style="padding-left: 20px; margin-bottom: 0;">
+                                                                <li style="margin-bottom: 5px;">Abre Lichess.org y asegúrate de tener sesión iniciada.</li>
+                                                                <li style="margin-bottom: 5px;">Pulsa <b>F12</b> para abrir herramientas de desarrollador.</li>
+                                                                <li style="margin-bottom: 5px;">Pestaña <b>Application</b> (o Almacenamiento) > <b>Cookies</b>.</li>
+                                                                <li>Busca la cookie <b>'lila2'</b> y copia su valor.</li>
+                                                            </ol>
+                                                        </div>
+                                                        <form id="mc-form" style="display: flex; width: 100%; max-width: 400px; flex-direction: column; gap: 15px;">
+                                                            <div style="position: relative; display: flex; align-items: center;">
+                                                                <input type="password" id="mc-input" placeholder="Pega tu cookie aquí..." autocomplete="off" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #403d39; background: #121110; color: #fff; outline: none; padding-right: 40px; font-family: monospace;">
+                                                                <div id="mc-eye" style="position: absolute; right: 10px; cursor: pointer; color: #bababa; display: flex; align-items: center;">
+                                                                    ${eyeOpenSvg}
+                                                                    ${eyeClosedSvg}
+                                                                </div>
+                                                            </div>
+                                                            <div style="display: flex; justify-content: center; gap: 15px;">
+                                                                <button type="button" id="mc-btn-volver" style="background-color: #6b7280; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #4b5563;">VOLVER</button>
+                                                                <button type="submit" id="mc-btn-cont" style="background-color: #81b64c; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #5a8231;">CONTINUAR</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                `;
+                                                progInteractive.insertAdjacentHTML('beforeend', mcHtml);
+                                                manualCookieView = progressView.querySelector('#manual-cookie-view');
+
+                                                manualCookieView.querySelector('#mc-eye').onclick = (e) => {
+                                                    const inp = manualCookieView.querySelector('#mc-input');
+                                                    const eyeOpen = manualCookieView.querySelector('.eye-open');
+                                                    const eyeClosed = manualCookieView.querySelector('.eye-closed');
+                                                    if (inp.type === 'password') {
+                                                        inp.type = 'text';
+                                                        eyeOpen.style.display = 'block';
+                                                        eyeClosed.style.display = 'none';
+                                                    } else {
+                                                        inp.type = 'password';
+                                                        eyeOpen.style.display = 'none';
+                                                        eyeClosed.style.display = 'block';
+                                                    }
+                                                };
+
+                                                manualCookieView.querySelector('#mc-btn-volver').onclick = () => sendInput('volver');
+
+                                                manualCookieView.querySelector('#mc-form').onsubmit = (e) => {
+                                                    e.preventDefault();
+                                                    const val = manualCookieView.querySelector('#mc-input').value.trim();
+                                                    if (val) {
+                                                        if (typeof GM_setValue !== 'undefined') {
+                                                            GM_setValue('agy_lichess_cookie', val);
+                                                        }
+                                                        localStorage.setItem('agy_lichess_cookie', val);
+                                                        // También guardarlo en el form principal oculto por si acaso
+                                                        const modalCookieInput = document.getElementById('modal-lichess-cookie');
+                                                        if (modalCookieInput) modalCookieInput.value = val;
+
+                                                        sendInput(val);
+                                                    }
+                                                };
+                                            }
+                                            manualCookieView.style.display = 'flex';
+                                            manualCookieView.querySelector('#mc-input').value = '';
+                                            setTimeout(() => manualCookieView.querySelector('#mc-input').focus(), 50);
+                                        }
+                                        else if (promptText.includes('(S/N)')) {
+                                            progQuestion.style.display = 'block';
+                                            progQuestion.style.whiteSpace = 'pre-wrap';
+                                            progQuestion.textContent = promptText.replace('(S/N)', '').replace(':', '').trim();
+                                            btnGroup.style.display = 'flex';
+                                        } else {
+                                            progQuestion.style.display = 'block';
+                                            progQuestion.style.whiteSpace = 'pre-wrap';
+                                            progQuestion.textContent = promptText;
+                                            inputForm.style.display = 'flex';
+                                            setTimeout(() => inputEl.focus(), 50);
+                                        }
+                                    }
+                                }
+                            }
+                            pollFailures = 0;
+                        } else {
+                            pollFailures++;
+                        }
+                    } catch (e) {
+                        console.error("Poll Error:", e);
+                        pollFailures++;
+                    }
+                    if (pollFailures > 10) {
+                        clearInterval(pollInterval);
+                        progSpinner.style.display = 'none';
+                        progInteractive.style.display = 'flex';
+                        progInteractive.innerHTML = '<div style="color: #d8504f; font-weight: bold; text-align: center;">Proceso finalizado.</div>';
+                    }
+                }, 500);
             };
         });
 
@@ -1016,9 +1492,6 @@
         title.className = 'local-analysis-title';
         const heading = document.createElement('strong');
         heading.textContent = 'Análisis local de Stockfish';
-        const subtitle = document.createElement('small');
-        subtitle.textContent = 'PGN local, sin análisis del servidor';
-        title.append(heading, subtitle);
         chartPanel.replaceChildren(title, createChart(data.moves));
 
         let status = document.getElementById('local-analysis-status');
@@ -1081,7 +1554,7 @@
         });
         const bubble = document.createElement('div');
         Object.assign(bubble.style, {
-            alignItems: 'center', backgroundColor: MOVE_TYPES[move.type].color, borderRadius: '50%', boxShadow: '0 2px 5px rgba(0,0,0,.3)',
+            alignItems: 'center', backgroundColor: MOVE_TYPES[move.type].color, borderRadius: '50%',
             color: 'white', display: 'flex', fontFamily: '"Noto Sans", sans-serif', fontSize: 'clamp(11px, 2.2vw, 29px)', fontWeight: 'bold',
             height: '40%', justifyContent: 'center', position: 'absolute', right: '-11%', top: '-11%', width: '40%', zIndex: '11',
         });

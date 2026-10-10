@@ -255,20 +255,35 @@ Input Context:
                 print(f"[Aviso] Reintentando petición a la IA ({intentos_ia}/{max_intentos})...")
                 if intentos_ia >= max_intentos:
                     print("\n[Error] La IA no logró generar un formato PGN válido tras varios intentos.")
-                    print("¿Qué deseas hacer?")
-                    print("1. Reintentar (otros 3 intentos)")
-                    print("2. Utilizar otro modelo de IA")
-                    print("3. Salir")
-                    opcion_f = input("Selecciona una opción (1/2/3): ").strip()
-                    if opcion_f == '1':
-                        intentos_ia = 0
-                        continue
-                    elif opcion_f == '2':
-                        raise ValueError("CAMBIO_MODELO")
+                    import sys
+                    is_web_mode = getattr(sys.modules.get('__main__'), 'is_web_mode', False)
+                    if is_web_mode:
+                        opcion_f = input("[MODEL_SELECTION]").strip()
+                        if opcion_f == 'REINTENTAR':
+                            intentos_ia = 0
+                            continue
+                        elif opcion_f == 'SALIR' or not opcion_f:
+                            import sys; sys.exit(0)
+                        else:
+                            modelo_actual = opcion_f
+                            _guardar_env('GEMINI_MODEL', modelo_actual)
+                            intentos_ia = 0
+                            continue
                     else:
-                        import sys
-                        print("[Aviso] Saliendo del script...")
-                        sys.exit(0)
+                        print("¿Qué deseas hacer?")
+                        print("1. Reintentar (otros 3 intentos)")
+                        print("2. Utilizar otro modelo de IA")
+                        print("3. Salir")
+                        opcion_f = input("Selecciona una opción (1/2/3): ").strip()
+                        if opcion_f == '1':
+                            intentos_ia = 0
+                            continue
+                        elif opcion_f == '2':
+                            raise ValueError("CAMBIO_MODELO")
+                        else:
+                            import sys
+                            print("[Aviso] Saliendo del script...")
+                            sys.exit(0)
                 continue
 
             texto_ia = _restaurar_metadatos_locales(texto_ia, pgn_anotado)
@@ -311,10 +326,25 @@ Input Context:
             if "CAMBIO_MODELO" in error_str:
                 opcion_error = '1'
             else:
-                print("\n¿Qué deseas hacer?")
-                print("1. Utilizar otro modelo de IA")
-                print("2. Salir")
-                opcion_error = input("Selecciona una opción (1/2): ").strip()
+                import sys
+                is_web_mode = getattr(sys.modules.get('__main__'), 'is_web_mode', False)
+                if is_web_mode:
+                    opcion_error = input("[MODEL_SELECTION]").strip()
+                    if opcion_error == 'SALIR' or not opcion_error:
+                        import sys; sys.exit(0)
+                    else:
+                        modelo_actual = opcion_error
+                        _guardar_env('GEMINI_MODEL', modelo_actual)
+                        indice_key_actual = 0
+                        api_key_name, api_key = api_keys[indice_key_actual]
+                        intentos_ia = 0
+                        print(f"\n[Google IA] Reintentando con {modelo_actual}...")
+                        continue
+                else:
+                    print("\n¿Qué deseas hacer?")
+                    print("1. Utilizar otro modelo de IA")
+                    print("2. Salir")
+                    opcion_error = input("Selecciona una opción (1/2): ").strip()
             
             if opcion_error == '2':
                 import sys

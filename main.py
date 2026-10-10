@@ -1,6 +1,9 @@
 import sys
 import builtins
 import os
+import threading
+import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Habilitar secuencias ANSI en la consola de Windows
 os.system("")
@@ -9,7 +12,73 @@ os.system("")
 original_print = builtins.print
 original_input = builtins.input
 
+web_logs = []
+is_web_mode = False
+web_input_event = threading.Event()
+web_input_value = ""
+
+class StatusHandler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
+    def do_GET(self):
+        if self.path == '/status':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"logs": web_logs}).encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
+            
+    def do_POST(self):
+        global web_input_value
+        if self.path == '/input':
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                web_input_value = data.get('input', '')
+                web_input_event.set()
+                self.send_response(200)
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+            except Exception:
+                self.send_response(400)
+                self.end_headers()
+        elif self.path == '/exit':
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            import os
+            os._exit(0)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+def start_server():
+    try:
+        server = HTTPServer(('localhost', 8765), StatusHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    except Exception:
+        pass
+
+# Iniciar servidor en background
+start_server()
+
 def custom_print(*args, **kwargs):
+    # Guardar texto original para web
+    if args and isinstance(args[0], str):
+        web_logs.append(str(args[0]))
+        
     # Solo aplicamos colores al texto sin afectar los argumentos adicionales de print (ej. end="")
     if args and isinstance(args[0], str):
         text = str(args[0])
@@ -22,6 +91,15 @@ def custom_print(*args, **kwargs):
     original_print(*args, **kwargs)
 
 def custom_input(prompt=""):
+    global is_web_mode, web_input_value
+    if is_web_mode:
+        web_logs.append(f"[WEB_INPUT_REQUIRED] {prompt}")
+        original_print(f"\033[93m[Web Mode] Esperando input interactivo desde la web: {prompt}\033[0m")
+        web_input_event.clear()
+        web_input_event.wait()
+        val = web_input_value
+        web_logs.append(val + "\n")
+        return val
     # Todos los prompts donde el usuario deba introducir algo serán Verdes
     return original_input(f"\033[92m{prompt}\033[0m")
 
@@ -102,6 +180,9 @@ def main():
         
     # Extraer payload si existe
     if "?payload=" in url or "&payload=" in url:
+        global is_web_mode
+        is_web_mode = True
+        
         import urllib.parse
         import base64
         import json
@@ -148,7 +229,8 @@ def main():
     url = url.split("?")[0]
 
     from login_manual import verificar_y_configurar_sesion
-    if not verificar_y_configurar_sesion():
+    is_web_mode = len(sys.argv) > 1
+    if not verificar_y_configurar_sesion(is_web_mode=is_web_mode):
         print("\n[Parada] Por favor, configura tu sesión de Lichess antes de continuar.")
         return
 
