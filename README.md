@@ -8,7 +8,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 - **Análisis Local Preciso:** Evalúa cada jugada con el motor Stockfish local para clasificar los movimientos (Brillante, Error, etc.).
 - **Integración con Lichess:** Crea estudios privados y gestiona los capítulos automáticamente usando la API REST de Lichess.
 - **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini para generar comentarios detallados y explicaciones didácticas en lenguaje natural.
-- **Automatización UI:** Incluye scripts para inyectar botones en Chess.com y visualizar métricas.
+- **Automatización y Consola Web:** Incluye scripts para inyectar botones en Chess.com, seguir los logs de progreso en vivo dentro del propio navegador y visualizar métricas.
 - **Gestión de Sesión inteligente:** Extrae automáticamente las cookies necesarias (`lila2`) de tu navegador local (Chrome, Brave, Edge, etc.) para autenticarse en Lichess sin complicaciones.
 
 ## 📋 Requisitos Previos
@@ -34,8 +34,8 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
    - Importa `Boton flotante/chess_button_analyzer.js`.
    - Este script tiene dos funciones:
-      - En Chess.com añade el botón verde "🤖 Analizar con IA". 
-      - En el estudio final de Lichess muestra el gráfico de la partida, las anotaciones hechas por la IA y la clasificación de las jugadas parecidas a chess.com
+      - En Chess.com añade el botón verde "🤖 Analizar con IA" junto a un modal con consola integrada para configurar y seguir el progreso en tiempo real.
+      - En el estudio final de Lichess muestra el gráfico SVG local, las anotaciones de la IA y la clasificación detallada de las jugadas (Brillante, Genial, Mejor, etc.) sin depender del motor de Lichess.
    - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir el analizador cuando detecte el protocolo `ajedrez://`.
 
 ## ⚙️ Configuración (.env)
@@ -59,7 +59,7 @@ POLYGLOT_BOOK_PATH=stockfish/polyglot.bin (Opcional, busca por defecto en la sub
 
 ## 🎮 Uso
 
-La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com (ver instrucciones de instalación arriba). Una vez instalado, solo tienes que hacer clic en el botón verde "🤖 Analizar con IA" en una partida.
+La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com (ver instrucciones de instalación arriba). Una vez instalado, haz clic en el botón verde "🤖 Analizar con IA" en una partida y pulsa en **INICIAR**. Podrás seguir los registros y el progreso en directo en el propio modal de la página.
 
 Si no deseas instalar el botón flotante, puedes usar el archivo por lotes en Windows:
 
@@ -72,12 +72,12 @@ Si no deseas instalar el botón flotante, puedes usar el archivo por lotes en Wi
 1. Haz doble clic en el archivo **`EJECUTAR.bat`**.
 2. Pega la URL de la partida de Chess.com que deseas analizar (por ejemplo: `https://www.chess.com/game/computer/123456789`).
 
-Una vez introducida la URL, el script hará todo el trabajo sucio en segundo plano:
-- Extraerá el PGN.
-- Creará el estudio en Lichess.
-- Pedirá a Gemini que comente los errores.
-- Actualizará el PGN con los comentarios en el estudio.
-- Finalmente, se abrirá tu navegador predeterminado para que puedas disfrutar de tu estudio interactivo.
+Una vez introducida la URL, el script realiza el flujo completo:
+- Extrae el PGN de Chess.com.
+- Analiza y clasifica localmente las jugadas con Stockfish.
+- Genera explicaciones y comentarios didácticos con Google Gemini conservando los metadatos.
+- Crea el estudio en Lichess con el PGN anotado (sin requerir análisis del servidor de Lichess).
+- Abre automáticamente tu navegador predeterminado con el estudio interactivo y la interfaz enriquecida.
 
 > También puedes ejecutarlo directamente desde la consola:
 > ```bash
