@@ -4,7 +4,6 @@ import json
 import urllib.request
 import chess
 import chess.pgn
-from playwright.sync_api import sync_playwright
 
 try:
     if hasattr(sys.stdout, 'reconfigure'):
@@ -91,6 +90,17 @@ def extraer_pgn_api(url):
         with urllib.request.urlopen(req, timeout=6) as response:
             if response.status == 200:
                 html = response.read().decode("utf-8", errors="ignore")
+                
+                # Buscar PGN incrustado directamente como variable JS (ej. páginas de colecciones / análisis)
+                match_pgn = re.search(r"pgn:\s*'([^']+)'", html) or re.search(r'pgn:\s*"([^"]+)"', html)
+                if match_pgn:
+                    try:
+                        raw_pgn = match_pgn.group(1).encode('utf-8').decode('unicode_escape')
+                        if raw_pgn and '[Event' in raw_pgn:
+                            return raw_pgn
+                    except Exception:
+                        pass
+
                 match = re.search(r'JSON\.parse\("(\{.+?\})"\)', html)
                 if match:
                     try:
@@ -122,7 +132,7 @@ def extraer_pgn_api(url):
     elif "daily" in url:
         endpoints.append(f"https://www.chess.com/callback/daily/game/{game_id}")
         endpoints.append(f"https://www.chess.com/callback/live/game/{game_id}")
-    elif "games/view" not in url:
+    else:
         endpoints.append(f"https://www.chess.com/callback/live/game/{game_id}")
         endpoints.append(f"https://www.chess.com/computer/callback/game/{game_id}")
         endpoints.append(f"https://www.chess.com/callback/daily/game/{game_id}")
@@ -152,70 +162,18 @@ def extraer_pgn_api(url):
 
     return None
 
-def _extraer_pgn_playwright(url):
-    print(f"Abriendo navegador (fallback Playwright) para: {url}")
-    
-    from browser_utils import iniciar_navegador
-    with sync_playwright() as p:
-        browser = iniciar_navegador(p, headless=True)
-        page = browser.new_page()
-        page.goto(url)
-        
-        # Esperamos a que cargue el tablero y los movimientos
-        print("Esperando a que cargue la página...")
-        page.wait_for_timeout(3000) # 3 segundos para asegurar que el JS renderiza
-        
-        # Cerrar banner de cookies si existe
-        try:
-            page.locator('text="I Accept"').click(timeout=2000)
-            page.wait_for_timeout(500)
-        except:
-            pass
-            
-        # Cerrar modal de "Black Won" / "Game Over"
-        try:
-            page.keyboard.press("Escape")
-            page.locator('button[aria-label="Close"]').click(timeout=1000)
-        except:
-            pass
-            
-        # Intentar obtener el PGN directamente de la página (a veces funciona)
-        texto_pagina = page.evaluate("document.body.innerText")
-        patron_pgn = re.search(r'\[Event ".*?"\].*?(?:1-0|0-1|1/2-1/2|\*)', texto_pagina, re.DOTALL)
-        
-        if patron_pgn:
-            print("\n[Ok] PGN Encontrado con Playwright en el texto!\n")
-            print(patron_pgn.group(0))
-            pgn = patron_pgn.group(0)
-        else:
-            try:
-                # Clic forzado en el botón de compartir ignorando otros elementos encima
-                page.locator('button[aria-label="Share"]').click(force=True, timeout=3000)
-                page.locator('text=PGN').click(timeout=2000)
-                # Extraer el texto del textarea de PGN
-                pgn = page.locator('div.share-menu-tab-pgn-textarea textarea, textarea.share-menu-tab-pgn-textarea, textarea').first.input_value()
-                print("\n[Ok] PGN Extraido desde la ventana de compartir!\n")
-                print(pgn)
-            except Exception as e:
-                print(f"[Error] Tampoco se pudo extraer desde la interfaz de compartir. Detalles: {e}")
-                pgn = None
-                
-        browser.close()
-        return pgn
-
 def extraer_pgn_chesscom(url):
     print(f"Intentando extraer PGN via API HTTP interna para: {url}")
     try:
         pgn = extraer_pgn_api(url)
         if pgn and len(pgn.strip()) > 0:
             print("\n[Ok] PGN obtenido exitosamente via HTTP/TCN (sin navegador)!\n")
-            print(pgn)
             return pgn
     except Exception as e:
         print(f"[Aviso] Excepción en extracción API HTTP: {e}")
 
-    print("\n[Aviso] Extracción API HTTP no disponible o incompleta. Usando Playwright como fallback...")
-    return _extraer_pgn_playwright(url)
+    print("\n[Error] No se pudo extraer el PGN a través de la API HTTP interna.")
+    return None
 
 if __name__ == "__main__":
     # Prueba rápida cuando se ejecuta este archivo directamente

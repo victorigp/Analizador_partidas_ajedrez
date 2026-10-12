@@ -177,7 +177,7 @@ def main():
         # Buscar en todos los argumentos el que contenga 'chess.com/game' o 'ajedrez://'
         for arg in sys.argv[1:]:
             arg_clean = arg.strip('\'"\\ ')
-            if "chess.com/game" in arg_clean or "ajedrez://" in arg_clean:
+            if "chess.com/" in arg_clean or "ajedrez://" in arg_clean:
                 url = arg_clean
                 break
         if not url:
@@ -212,9 +212,9 @@ def main():
         except Exception as e:
             pass
             
-        if "chess.com/game" in portapapeles:
+        if "chess.com/" in portapapeles:
             import re
-            match = re.search(r'(?:https?[:/]+)?(?:www\.)?chess\.com/game/\S+', portapapeles)
+            match = re.search(r'(?:https?[:/]+)?(?:www\.)?chess\.com/(?:game|games|analysis|live)/\S+', portapapeles)
             if match:
                 url_limpia = match.group(0)
                 # Arreglar protocolos deformados o inexistentes
@@ -233,7 +233,7 @@ def main():
             
     if url:
         import re
-        match = re.search(r'(?:https?[:/]+)?(?:www\.)?chess\.com/game/\S+', url)
+        match = re.search(r'(?:https?[:/]+)?(?:www\.)?chess\.com/(?:game|games|analysis|live)/\S+', url)
         if match:
             url = match.group(0)
             if url.startswith("https//"):
@@ -243,7 +243,7 @@ def main():
             elif not url.startswith("http"):
                 url = "https://" + url
                 
-    if not url or "chess.com/game" not in url:
+    if not url or "chess.com" not in url:
         print("\n[Error] URL inválida. Debe ser un enlace a una partida de Chess.com.")
         return
         
@@ -274,6 +274,8 @@ def main():
                 # Para cada clave, la reemplazamos si existe o la añadimos
                 keys_actualizadas = []
                 for key, value in config_data.items():
+                    if key in ("TARGET_PLAYER", "PGN", "CHESSCOM_GAME_ID"):
+                        continue  # No guardar en .env claves transitorias de la partida
                     if value is None or value == "":
                         continue # No sobreescribir con valores vacíos
                     
@@ -289,6 +291,9 @@ def main():
                         
                 with open(env_path, "w", encoding="utf-8") as f:
                     f.writelines(env_lines)
+
+                if 'TARGET_PLAYER' in config_data and config_data['TARGET_PLAYER']:
+                    os.environ['TARGET_PLAYER'] = str(config_data['TARGET_PLAYER'])
             except Exception as e:
                 import traceback
                 print(f"\n[Error] No se pudo procesar la configuración. Detalles: {e}")
@@ -384,5 +389,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        with open("crash.log", "w", encoding="utf-8") as f:
-            traceback.print_exc(file=f)
+        traceback.print_exc()
+

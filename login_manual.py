@@ -1,6 +1,5 @@
 import os
 import sys
-from playwright.sync_api import sync_playwright
 from browser_utils import _get_default_browser_path
 
 def _cargar_env():
@@ -96,6 +95,12 @@ def verificar_y_configurar_sesion(forzar=False, is_web_mode=False):
                         input("Pulsa ENTER cuando lo hayas cerrado TOTALMENTE...")
                         
                         print("\nExtrayendo cookie de tu perfil local...")
+                        try:
+                            from playwright.sync_api import sync_playwright
+                        except ImportError:
+                            print("\n[Aviso] Playwright no está instalado. Introduce la cookie manualmente.")
+                            break
+
                         with sync_playwright() as p:
                             try:
                                 context = p.chromium.launch_persistent_context(

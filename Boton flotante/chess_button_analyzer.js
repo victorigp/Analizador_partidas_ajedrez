@@ -71,7 +71,7 @@
                 return window.gameData.pgn;
             }
         } catch (e) {
-            console.log('Método 1 falló:', e.message);
+            // Ignorar
         }
 
         // Método 2: Buscar script con tipo application/x-chess-pgn
@@ -81,7 +81,7 @@
                 return pgnScript.textContent;
             }
         } catch (e) {
-            console.log('Método 2 falló:', e.message);
+            // Ignorar
         }
 
         // Método 3: Buscar en elementos con clase o id específico
@@ -96,7 +96,7 @@
                 }
             }
         } catch (e) {
-            console.log('Método 3 falló:', e.message);
+            // Ignorar
         }
 
         // Método 4: Buscar en elementos hidden o textarea
@@ -108,97 +108,10 @@
                 }
             }
         } catch (e) {
-            console.log('Método 4 falló:', e.message);
+            // Ignorar
         }
 
-        // Método 5: Intentar obtener de la API con GM_xmlhttpRequest (para evitar CORS)
-        const gameId = window.location.pathname.split('/').pop();
-        const pgnUrl = `https://www.chess.com/news/view/game/pgn/${gameId}`;
 
-        try {
-            // Usar GM_xmlhttpRequest si está disponible (evita CORS)
-            if (typeof GM_xmlhttpRequest !== 'undefined') {
-                const pgn = await new Promise((resolve, reject) => {
-                    GM_xmlhttpRequest({
-                        method: 'GET',
-                        url: pgnUrl,
-                        headers: { 'Accept': 'application/x-chess-pgn' },
-                        timeout: 10000,
-                        onload: function (response) {
-                            if (response.status === 200 && response.responseText.includes('[Event')) {
-                                resolve(response.responseText);
-                            } else {
-                                reject(new Error('PGN no válido'));
-                            }
-                        },
-                        onerror: function (error) {
-                            reject(new Error(error.statusText || 'Error al obtener PGN'));
-                        },
-                        ontimeout: function () {
-                            reject(new Error('Timeout al obtener PGN'));
-                        }
-                    });
-                });
-                if (pgn) return pgn;
-            }
-        } catch (e) {
-            console.log('Método 5 (GM_xmlhttpRequest) falló:', e.message);
-        }
-
-        // Método 5b: Intentar con fetch normal (para navegadores modernos)
-        try {
-            const urls = [
-                `https://www.chess.com/callback/live/game/${gameId}`,
-                pgnUrl,
-                `https://www.chess.com/live/game/${gameId}.pgn`
-            ];
-
-            for (const url of urls) {
-                try {
-                    const response = await fetch(url, {
-                        headers: { 'Accept': 'application/x-chess-pgn' },
-                        credentials: 'include',
-                        mode: 'no-cors'
-                    });
-                    if (response.ok) {
-                        const text = await response.text();
-                        if (text.includes('[Event')) {
-                            return text;
-                        }
-                    }
-                } catch (e) {
-                    // Continuar con la siguiente URL
-                }
-            }
-        } catch (e) {
-            console.log('Método 5b (fetch) falló:', e.message);
-        }
-
-        // Método 5b: Intentar simular clic en botón de descarga PGN si existe
-        try {
-            const downloadButtons = document.querySelectorAll('a[download], button[download], a[href*=".pgn"], button[class*="pgn"]');
-            for (const btn of downloadButtons) {
-                const href = btn.getAttribute('href') || btn.getAttribute('data-href');
-                if (href && href.includes('.pgn')) {
-                    try {
-                        const response = await fetch(href, {
-                            headers: { 'Accept': 'application/x-chess-pgn' },
-                            credentials: 'include'
-                        });
-                        if (response.ok) {
-                            const text = await response.text();
-                            if (text.includes('[Event')) {
-                                return text;
-                            }
-                        }
-                    } catch (e) {
-                        // Ignorar
-                    }
-                }
-            }
-        } catch (e) {
-            console.log('Método 5b falló:', e.message);
-        }
 
         // Método 6: Extraer movimientos del DOM y reconstruir PGN
         try {
@@ -244,15 +157,13 @@
                 pgn += result + '\n\n';
 
                 if (pgn.includes('1.') && pgn.includes('[Event')) {
-                    console.log('PGN reconstruido desde el DOM');
                     return pgn;
                 }
             }
         } catch (e) {
-            console.log('Método 6 falló:', e.message);
+            // Ignorar
         }
 
-        console.error('No se pudo obtener el PGN de Chess.com: todos los métodos fallaron');
         return null;
     }
 
@@ -565,6 +476,13 @@
                 </style>
             `;
 
+            const returnToMainMenu = () => {
+                if (pollInterval) clearInterval(pollInterval);
+                if (stepTimerInterval) clearInterval(stepTimerInterval);
+                mainView.style.transform = 'translateX(0)';
+                progressView.style.left = '100%';
+            };
+
             const sendInput = async (val) => {
                 try {
                     await localFetch(`http://127.0.0.1:${getServerPort()}/input`, {
@@ -581,7 +499,13 @@
             };
 
             progressView.querySelector('#btn-yes').addEventListener('click', () => sendInput('s'));
-            progressView.querySelector('#btn-no').addEventListener('click', () => sendInput('n'));
+            progressView.querySelector('#btn-no').addEventListener('click', async () => {
+                const qText = progressView.querySelector('#progress-question')?.textContent || '';
+                await sendInput('n');
+                if (qText.toLowerCase().includes('reintentar')) {
+                    returnToMainMenu();
+                }
+            });
             progressView.querySelector('#prog-input-form').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const textInput = progressView.querySelector('#prog-input');
@@ -970,20 +894,17 @@
             };
 
             document.getElementById('modal-save').onclick = () => {
-                const newPlayer = document.getElementById('modal-player').value;
-                const targetPlayer = document.getElementById('modal-target').value;
+                const newPlayer = document.getElementById('modal-player').value.trim();
                 const depth = document.getElementById('modal-depth').value;
                 const model = document.getElementById('modal-model').value;
 
                 localStorage.setItem('agy_stockfish_depth', depth);
                 localStorage.setItem('agy_gemini_model', model);
-                localStorage.setItem('agy_chesscom_player', targetPlayer);
-
-                // If they provided a fallback in settings, maybe save it too? 
-                // Actually the script uses newPlayer if they update the default.
-                // We'll leave newPlayer in 'agy_chesscom_player' alone, wait! 
-                // 'agy_chesscom_player' is used for BOTH. Let's just save newPlayer there if it was modified.
-                if (newPlayer) localStorage.setItem('agy_chesscom_player', newPlayer);
+                if (newPlayer) {
+                    localStorage.setItem('agy_chesscom_player', newPlayer);
+                } else {
+                    localStorage.removeItem('agy_chesscom_player');
+                }
 
                 localStorage.setItem('agy_stockfish_threads', document.getElementById('modal-threads').value);
                 localStorage.setItem('agy_stockfish_hash', document.getElementById('modal-hash').value);
@@ -1042,17 +963,6 @@
 
                 const serverPort = getServerPort();
 
-                // Extraer PGN de Chess.com (si falla, se enviará el gameId para que el servidor lo obtenga)
-                let pgn = null;
-                let gameId = null;
-                if (currentUrl.includes('chess.com/')) {
-                    gameId = window.location.pathname.split('/').pop();
-                    pgn = await getChessComPGN();
-                    if (!pgn) {
-                        console.log('No se pudo obtener el PGN desde el navegador. El servidor local lo extraerá usando el gameId:', gameId);
-                    }
-                }
-
                 if (!targetPlayer || !depth || !model || model.startsWith('Error') || !threads || !hash || !serverPort || !lichessToken || !lichessCookie || !apiKey) {
                     const warningOverlay = document.createElement('div');
                     Object.assign(warningOverlay.style, {
@@ -1077,11 +987,25 @@
                 // Save main view settings
                 localStorage.setItem('agy_stockfish_depth', depth);
                 localStorage.setItem('agy_gemini_model', model);
-                localStorage.setItem('agy_chesscom_player', targetPlayer);
+
+                // Transition to progress view immediately
+                mainView.style.transform = 'translateX(-100%)';
+                progressView.style.left = '0';
+
+                // Extraer PGN de Chess.com de forma rápida si está en DOM
+                let pgn = null;
+                let gameId = null;
+                if (currentUrl.includes('chess.com/')) {
+                    gameId = window.location.pathname.split('/').pop();
+                    pgn = await getChessComPGN();
+                }
+
+                const configuredPlayer = document.getElementById('modal-player')?.value?.trim() || getSaved('chesscom_player', '');
 
                 // Construct full configuration payload
                 const configData = {
-                    CHESSCOM_PLAYER: targetPlayer,
+                    CHESSCOM_PLAYER: configuredPlayer,
+                    TARGET_PLAYER: targetPlayer,
                     STOCKFISH_DEPTH: depth,
                     GEMINI_MODEL: model,
                     STOCKFISH_THREADS: document.getElementById('modal-threads').value,
@@ -1122,10 +1046,6 @@
                 document.body.appendChild(link);
                 link.click();
                 setTimeout(() => link.remove(), 2000);
-
-                // Transition to progress view instead of terminal view
-                mainView.style.transform = 'translateX(-100%)';
-                progressView.style.left = '0';
 
                 const progText = progressView.querySelector('#progress-text');
                 const progSubtext = progressView.querySelector('#progress-subtext');
@@ -1414,9 +1334,11 @@
                         if (isSuccess) {
                             progInteractive.innerHTML = '<div style="color: #81b64c; font-weight: bold; text-align: center; font-size: 16px;">✓ ¡Análisis completado con éxito!<br><span style="color:#aaa; font-size:13px; font-weight:normal; margin-top:8px; display:inline-block;">El estudio se ha abierto en una nueva pestaña de Lichess.</span></div>';
                         } else if (!hasConnected) {
-                            progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">No se pudo conectar con el servidor local en el puerto ${serverPort || 'desconocido'}.<br><span style="color: #aaa; font-size: 13px; font-weight: normal; margin-top: 6px; display: inline-block;">${lastPollError ? 'Detalle: ' + lastPollError + '<br>' : ''}Verifica que el puerto coincida y que no esté bloqueado.</span></div>`;
+                            progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">No se pudo conectar con el servidor local en el puerto ${serverPort || 'desconocido'}.<br><span style="color: #aaa; font-size: 13px; font-weight: normal; margin-top: 6px; display: inline-block;">${lastPollError ? 'Detalle: ' + lastPollError + '<br>' : ''}Verifica que el puerto coincida y que no esté bloqueado.</span><br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>`;
+                            progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', returnToMainMenu);
                         } else {
-                            progInteractive.innerHTML = '<div style="color: #d8504f; font-weight: bold; text-align: center;">Proceso finalizado.</div>';
+                            progInteractive.innerHTML = '<div style="color: #d8504f; font-weight: bold; text-align: center;">Proceso finalizado.<br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>';
+                            progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', returnToMainMenu);
                         }
                     }
                 }, 500);
@@ -2009,26 +1931,11 @@
         const activeEntry = mainlineMoves.find((item) => item.node.classList.contains('active') || item.node.classList.contains('a'));
         const activeIndex = activeEntry?.index;
         const move = activeIndex !== undefined ? state.data.moves[activeIndex] : null;
-        if (!move) {
-            const domActive = document.querySelector('move.active, u8.active, move.a, u8.a, node.active');
-            if (domActive) {
-                console.warn('[Coronas] Se encontró nodo activo en el DOM pero no en mainlineMoves:', domActive.textContent);
-            }
-            return;
-        }
+        if (!move) return;
 
         const moveColor = activeIndex % 2 === 0 ? 'white' : 'black';
         const isFlipped = document.querySelector('.cg-wrap')?.classList.contains('orientation-black');
         const gameWinner = getGameWinner(move, activeIndex);
-
-        console.log('[Coronas] Jugada activa:', {
-            index: activeIndex,
-            san: move.san,
-            color: moveColor,
-            winner: gameWinner?.winner || 'ninguno',
-            type: move.type,
-            termination: state.data.headers['Termination'] || state.data.headers['Result']
-        });
 
         if (gameWinner) {
             const winnerColor = gameWinner.winner;
@@ -2049,15 +1956,6 @@
 
             const winnerTransform = getTransform(winnerKingEl, winnerColor === 'white' ? 'e1' : 'e8');
             const loserTransform = getTransform(loserKingEl, loserColor === 'white' ? 'e1' : 'e8');
-
-            console.log('[Coronas] Pintando coronas:', {
-                winnerColor,
-                loserColor,
-                winnerKingFound: Boolean(winnerKingEl),
-                loserKingFound: Boolean(loserKingEl),
-                winnerTransform,
-                loserTransform
-            });
 
             [
                 { transform: winnerTransform, iconType: 'WHITE_CROWN', color: '#81b64c' },
@@ -2226,15 +2124,12 @@
             state.path = path;
             state.data = parsePgn(await response.text());
             state.statCycles.clear();
-            if (!state.data.moves.some((move) => move.type || Number.isFinite(move.evaluation))) {
-                console.warn('[Análisis local] El PGN no contiene [%eval] ni [#TIPO#].');
-            }
             actionsPerformed = false;
             performInitialActions(() => {
                 syncWithDom();
             });
         } catch (error) {
-            console.warn('[Análisis local] No se pudo cargar el PGN del estudio.', error);
+            // Ignorar error al cargar PGN del estudio
         }
     }
 

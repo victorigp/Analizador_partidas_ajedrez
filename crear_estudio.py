@@ -5,8 +5,6 @@ import json
 import urllib.request
 import urllib.parse
 import urllib.error
-from playwright.sync_api import sync_playwright
-from browser_utils import iniciar_navegador
 
 def _cargar_env():
     env_vars = {}
@@ -53,7 +51,7 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     color_prefix = "White" if is_white else "Black"
     
     # 1. Precision general
-    precision_match = re.search(fr'\[{color_prefix}EloAccuracy "(.*?)"\]', pgn_text)
+    precision_match = re.search(fr'\[{color_prefix}EloAccuracy "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}EloAccuracy "(.*?)"\]', contenido_completo)
     precision_str = f"{precision_match.group(1)}%, " if precision_match else ""
     
     # 2. ELO
@@ -61,12 +59,12 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     if elo_est_match:
         elo_str = f"ELO: {elo_est_match.group(1)}"
     else:
-        elo_match = re.search(fr'\[{color_prefix}Elo "(.*?)"\]', pgn_text)
+        elo_match = re.search(fr'\[{color_prefix}Elo "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}Elo "(.*?)"\]', contenido_completo)
         elo_str = f"ELO: {elo_match.group(1)}" if elo_match and elo_match.group(1) != "?" else "ELO: ?"
         
     # 3. Brillantes y geniales
-    brillants_match = re.search(fr'\[{color_prefix}Brilliant "(.*?)"\]', pgn_text)
-    greats_match = re.search(fr'\[{color_prefix}Great "(.*?)"\]', pgn_text)
+    brillants_match = re.search(fr'\[{color_prefix}Brilliant "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}Brilliant "(.*?)"\]', contenido_completo)
+    greats_match = re.search(fr'\[{color_prefix}Great "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}Great "(.*?)"\]', contenido_completo)
     
     brillants = int(brillants_match.group(1)) if brillants_match else 0
     greats = int(greats_match.group(1)) if greats_match else 0
@@ -121,7 +119,7 @@ def crear_estudio_desde_txt():
         
     # 2. Extraer info
     env_vars = _cargar_env()
-    target_player = env_vars.get("CHESSCOM_PLAYER", "")
+    target_player = os.environ.get("TARGET_PLAYER") or env_vars.get("TARGET_PLAYER") or env_vars.get("CHESSCOM_PLAYER", "")
     token = env_vars.get("LICHESS_TOKEN")
     lichess_cookie = env_vars.get("LICHESS_COOKIE")
     
@@ -192,10 +190,8 @@ def crear_estudio_desde_txt():
             match = re.search(r'"chapters":\s*\[\{"id":"([^"]+)"', html_resp)
             if match:
                 chapter_id_vacio = match.group(1)
-            else:
-                print("[Debug] Regex de chapter_id no encontró coincidencias en el HTML de Lichess.")
-        except Exception as e:
-            print(f"[Debug] Falló la petición HTTP para leer el estudio: {e}")
+        except Exception:
+            pass
     
     # ===================================
     # PASO 3: Importar PGN con el analisis

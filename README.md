@@ -4,7 +4,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 
 ## 🚀 Características
 
-- **Extracción automática:** Obtiene el PGN completo de partidas de Chess.com utilizando Playwright.
+- **Extracción automática:** Obtiene el PGN completo de partidas de Chess.com mediante endpoints HTTP y decodificación TCN.
 - **Análisis Local Preciso:** Evalúa cada jugada con el motor Stockfish local para clasificar los movimientos (Brillante, Error, etc.).
 - **Integración con Lichess:** Crea estudios privados y gestiona los capítulos automáticamente usando la API REST de Lichess.
 - **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini para generar comentarios detallados y explicaciones didácticas en lenguaje natural.
@@ -24,13 +24,9 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 1. Clona o descarga este repositorio en tu ordenador.
 2. Abre una terminal en la carpeta del proyecto e instala las dependencias de Python:
    ```bash
-   pip install playwright google-generativeai python-chess python-dotenv
+   pip install google-generativeai python-chess python-dotenv
    ```
-3. Instala los navegadores necesarios para Playwright:
-   ```bash
-   playwright install chromium
-   ```
-4. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
+3. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
    - Importa `Boton flotante/chess_button_analyzer.js` y haz clic en **Instalar** (o guarda con `Ctrl + S`).
    - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto asocia el protocolo `ajedrez://` directamente a `pythonw.exe` para ejecutar el analizador y Stockfish de forma 100% silenciosa en segundo plano (sin parpadeos ni ventanas de consola en Windows).
@@ -101,7 +97,7 @@ Una vez introducida la URL, el script realiza el flujo completo:
 ## 📁 Estructura del Proyecto
 
 - `main.py`: Archivo principal que orquesta el flujo completo de ejecución.
-- `extraer_pgn.py`: Módulo para extraer el texto PGN desde Chess.com (vía endpoint HTTP y decodificación TCN, con Playwright como fallback).
+- `extraer_pgn.py`: Módulo para extraer el texto PGN desde Chess.com (vía endpoint HTTP y decodificación TCN).
 - `lichess_api.py`: Comunicación con la API REST de Lichess.
 - `analisis_ia.py`: Conexión con Google Gemini para generar los comentarios en español.
 - `local_analysis.py`: Ejecuta Stockfish localmente para evaluar cada posición y jugada.

@@ -145,7 +145,7 @@ I know it is not possible to accurately calculate a specific "match ELO", but yo
             return "\n".join(l)
         stats_texto += bstats(stats.get('white', {})) + f"\n\n{black_name}:\n" + bstats(stats.get('black', {}))
 
-    target_player = env_vars.get("CHESSCOM_PLAYER", "")
+    target_player = os.environ.get("TARGET_PLAYER") or env_vars.get("TARGET_PLAYER") or env_vars.get("CHESSCOM_PLAYER", "")
     
     prompt_base = f"""Role: Act as an Grandmaster (GM) of chess, skilled in both analysis and teaching.
 
@@ -227,7 +227,6 @@ Input Context:
 
     while True:
         try:
-            import os
             os.environ["GEMINI_API_KEY"] = api_key
             genai.configure(api_key=api_key)
             # Limpiar la cache interna del SDK para forzar que use la nueva key
