@@ -1463,23 +1463,23 @@
         BLUNDER: { label: 'Error grave', symbol: '??', color: '#fa412d' },
     };
 
-    function getMoveTypeIconHtml(type, size = '0.95em') {
+    function getMoveTypeIconHtml(type, size = '1.35em') {
         const style = `width:${size};height:${size};display:block;`;
         switch (type) {
             case 'BOOK':
-                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M4 6.5C7.5 5.5 10 6 11 6.5v11C10 17 7.5 16.5 4 17.5c-.6.2-1-.2-1-.8V7.3c0-.6.4-1 1-.8z"/><path d="M20 6.5C16.5 5.5 14 6 13 6.5v11C14 17 16.5 16.5 20 17.5c.6.2 1-.2 1-.8V7.3c0-.6-.4-1-1-.8z"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="M8.45,5.4c-1-.75-2.51-1.09-4.83-1.09H3V13h.58a8.09,8.09,0,0,1,4.83,1.17ZM9.54,14.19A8.14,8.14,0,0,1,14.38,13H15V4.31h-.58c-2.31,0-3.81.34-4.84,1.09Z"/></svg>`;
             case 'BEST':
-                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="M9,2.93A.5.5,0,0,0,8.73,3a.46.46,0,0,0-.17.22L7.24,6.67l-3.68.19A.52.52,0,0,0,3.3,7a.53.53,0,0,0-.16.23.45.45,0,0,0,0,.28.44.44,0,0,0,.15.23L6.15,10l-1,3.56a.45.45,0,0,0,0,.28.46.46,0,0,0,.17.22.41.41,0,0,0,.26.09.43.43,0,0,0,.27-.08l3.09-2,3.09,2a.46.46,0,0,0,.53,0,.46.46,0,0,0,.17-.22.53.53,0,0,0,0-.28l-1-3.56L14.71,7.7a.44.44,0,0,0,.15-.23.45.45,0,0,0,0-.28A.53.53,0,0,0,14.7,7a.52.52,0,0,0-.26-.1l-3.68-.2L9.44,3.23A.46.46,0,0,0,9.27,3,.5.5,0,0,0,9,2.93Z"/></svg>`;
             case 'EXCELLENT':
-                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="M13.79,10.84c0-.2.4-.53.4-.94S14,9.22,14,9.08a2.06,2.06,0,0,0,.18-.83,1,1,0,0,0-.3-.69,1.13,1.13,0,0,0-.55-.2,10.29,10.29,0,0,1-2.07,0c-.37-.23,0-1.18.18-1.7s.51-2.12-.77-2.43c-.69-.17-.66.37-.78.9-.05.21-.09.43-.13.57A5,5,0,0,1,7.05,7.73a1.57,1.57,0,0,1-.42.18v4.94A7.23,7.23,0,0,1,8,13c.52.12.91.25,1.44.33a11.11,11.11,0,0,0,1.62.16,6.65,6.65,0,0,0,1.18,0,1.09,1.09,0,0,0,1-.59.66.66,0,0,0,.06-.2,1.63,1.63,0,0,1,.07-.3c.13-.28.37-.3.5-.68S13.74,11,13.79,10.84ZM5.49,7.59H4.31a.5.5,0,0,0-.5.5v4.56a.5.5,0,0,0,.5.5H5.49a.5.5,0,0,0,.5-.5V8.09A.5.5,0,0,0,5.49,7.59Z"/></svg>`;
             case 'GOOD':
-                return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" style="${style}"><polyline points="20 6 9 17 4 12"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="M15.11,6.31,9.45,12,7.79,13.63a.39.39,0,0,1-.28.11.39.39,0,0,1-.27-.11L2.89,9.28A.39.39,0,0,1,2.78,9a.39.39,0,0,1,.11-.27L4.28,7.35a.34.34,0,0,1,.12-.09l.15,0a.37.37,0,0,1,.15,0,.38.38,0,0,1,.13.09L7.52,10l5.65-5.65a.38.38,0,0,1,.13-.09.37.37,0,0,1,.15,0,.4.4,0,0,1,.15,0,.34.34,0,0,1,.12.09l1.39,1.38a.41.41,0,0,1,.08.13.33.33,0,0,1,0,.15.4.4,0,0,1,0,.15A.5.5,0,0,1,15.11,6.31Z"/></svg>`;
             case 'MISS':
-                return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" style="${style}"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="M13.99,12.01s.06,.08,.08,.13c.02,.05,.03,.1,.03,.15s-.01,.1-.03,.15c-.02,.05-.05,.09-.08,.13l-1.37,1.37s-.08,.06-.13,.08c-.05,.02-.1,.03-.15,.03s-.1-.01-.15-.03c-.05-.02-.09-.05-.13-.08l-3.06-3.06-3.06,3.06s-.08,.06-.13,.08c-.05,.02-.1,.03-.15,.03s-.1-.01-.15-.03c-.05-.02-.09-.05-.13-.08l-1.37-1.37c-.07-.07-.11-.17-.11-.28s.04-.2,.11-.28l3.06-3.06-3.06-3.06c-.07-.07-.11-.17-.11-.28s.04-.2,.11-.28l1.37-1.37c.07-.07,.17-.11,.28-.11s.2,.04,.28,.11l3.06,3.06,3.06-3.06c.07-.07,.17-.11,.28-.11s.2,.04,.28,.11l1.37,1.37s.06,.08,.08,.13c.02,.05,.03,.1,.03,.15s-.01,.1-.03,.15c-.02,.05-.05,.09-.08,.13l-3.06,3.06,3.06,3.06Z"/></svg>`;
             case 'WHITE_CROWN':
-                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M5 16L3 5l5.5 6.5L12 2l2.5 10L21 5l-2 11z" stroke="#FFD700" stroke-width="2" fill="none"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="m 24.4334,39.6517 c 15.9034,0 22.8584,-4.7017 22.8584,-4.7017 l 0.975,-23.6167 c 0,-2.16663 -1.495,-2.79497 -3.25,-1.4083 L 34.1834,17.53 26.6868,2.66667 C 26.0151,0.911667 25.1484,0.5 24.5201,0.5 23.8918,0.5 22.9384,0.955 22.3534,2.66667 L 14.6834,17.53 3.85008,9.925 C 2.09508,8.53833 0.513416,9.16667 0.600083,11.3333 L 1.57508,34.95 c 0,0 6.955,4.55 22.85832,4.7017 z" transform="matrix(0.25173118,0,0,0.25173118,2.8497971,2.8741344)"/></svg>`;
             case 'BLACK_CROWN':
-                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M5 16L3 5l5.5 6.5L12 2l2.5 10L21 5l-2 11z" stroke="#000" stroke-width="2" fill="none"/><line x1="8" y1="8" x2="16" y2="16" stroke="#ff4444" stroke-width="2.5"/><line x1="16" y1="8" x2="8" y2="16" stroke="#ff4444" stroke-width="2.5"/></svg>`;
+                return `<svg viewBox="0 0 18 18" fill="currentColor" style="${style}"><path d="m 8.91922,5.86598 c 0.27141,0 0.5622,0.28866 0.96931,0.70103 0.19387,0.20619 0.40707,0.41237 0.65917,0.63918 0,0.12371 -0.0194,0.26804 -0.0194,0.41237 H 8.70598 C 8.47334,7.30928 8.33764,6.95876 8.33764,6.60825 c 0,-0.37114 0.15509,-0.74227 0.58158,-0.74227 z m 0,6.26802 c -0.42649,0 -0.58158,-0.3711 -0.58158,-0.7422 0,-0.3506 0.1357,-0.7011 0.36834,-1.0104 h 1.82232 c 0,0.1444 0.0194,0.2887 0.0194,0.4124 -0.2521,0.2268 -0.4653,0.433 -0.65917,0.6392 -0.40711,0.4124 -0.6979,0.701 -0.96931,0.701 z M 11.3748,4.52577 C 10.6769,3.7835 9.95961,3 8.79645,3 7.14863,3 5.96607,4.23711 5.96607,5.92784 c 0,0.82474 0.17448,1.50515 0.32957,1.91752 L 5.73344,7.96907 V 7.02062 H 5.40388 4.27948 3.96931 V 8.05155 H 3.31018 3 V 8.40206 9.5979 9.9485 h 0.31018 0.65913 v 1.0309 h 0.31017 1.1244 0.32956 v -0.9485 l 0.54281,0.1237 c -0.1357,0.4124 -0.31018,1.0928 -0.31018,1.9176 0,1.6907 1.18256,2.9278 2.83038,2.9278 1.16316,0 1.88045,-0.7835 2.57835,-1.5258 0.3683,-0.3711 0.7367,-0.7629 1.1632,-1.0515 0.1357,0.4536 0.3683,0.7422 0.6979,0.9072 0.3683,0.2062 0.8142,0.2062 1.3182,0.2062 H 14.6704 15 V 13.1856 L 14.9935,4.81443 V 4.46392 H 14.664 14.5477 c -0.5041,0 -0.95,0 -1.3183,0.20618 C 12.8998,4.83505 12.6672,5.12371 12.5315,5.57732 12.105,5.28866 11.7367,4.89691 11.3683,4.52577 Z"/></svg>`;
             default:
                 return MOVE_TYPES[type]?.symbol || '';
         }
@@ -1518,9 +1518,12 @@
     const state = { path: '', data: null, statCycles: new Map() };
 
     function injectStyles() {
-        if (document.getElementById('local-analysis-styles')) return;
-        const style = document.createElement('style');
-        style.id = 'local-analysis-styles';
+        let style = document.getElementById('local-analysis-styles');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'local-analysis-styles';
+            (document.head || document.documentElement).appendChild(style);
+        }
         style.textContent = `
             #local-analysis-chart-panel { background: transparent; box-sizing: border-box; color: var(--c-font, #bababa); overflow: hidden; }
             .local-analysis-title { align-items: baseline; display: flex; gap: .6em; justify-content: space-between; padding: 0 0 .35em; }
@@ -1543,10 +1546,11 @@
             .local-analysis-count .stat-label { color: #ffffff; font-weight: 500; min-width: 120px; }
             .local-analysis-count .stat-count { font-weight: bold; font-size: 1.1em; }
             .custom-move-badge { border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-sizing: border-box; }
-            glyph.custom-move-glyph { align-items: center; background: none !important; box-shadow: none !important; display: inline-flex !important; justify-content: center; margin-left: 4px !important; vertical-align: middle !important; box-sizing: border-box;}
-            glyph.custom-move-glyph[data-glyph-type="book"], glyph.custom-move-glyph[data-glyph-type="best"], glyph.custom-move-glyph[data-glyph-type="excellent"], glyph.custom-move-glyph[data-glyph-type="good"], glyph.custom-move-glyph[data-glyph-type="miss"] {width: 22px; height: 22px;}
-            glyph.custom-move-glyph[data-glyph-type="book"] svg, glyph.custom-move-glyph[data-glyph-type="best"] svg, glyph.custom-move-glyph[data-glyph-type="excellent"] svg, glyph.custom-move-glyph[data-glyph-type="good"] svg, glyph.custom-move-glyph[data-glyph-type="miss"] svg {width: 100%; height: 100%; fill: currentColor; display: block;}
-            glyph.custom-move-glyph[data-glyph-type="brilliant"], glyph.custom-move-glyph[data-glyph-type="great"], glyph.custom-move-glyph[data-glyph-type="inaccuracy"], glyph.custom-move-glyph[data-glyph-type="mistake"], glyph.custom-move-glyph[data-glyph-type="miss"], glyph.custom-move-glyph[data-glyph-type="blunder"] {font-family: 'Noto Sans', sans-serif; font-size: 18px !important; font-weight: bold; line-height: 1;}
+            move[data-local-analysis-type], u8[data-local-analysis-type] { align-items: center !important; }
+            glyph.custom-move-glyph { align-self: center !important; margin-top: auto !important; margin-bottom: auto !important; align-items: center; background: none !important; box-shadow: none !important; display: inline-flex !important; justify-content: center; margin-left: 4px !important; vertical-align: middle !important; box-sizing: border-box;}
+            glyph.custom-move-glyph[data-glyph-type="book"], glyph.custom-move-glyph[data-glyph-type="best"], glyph.custom-move-glyph[data-glyph-type="excellent"], glyph.custom-move-glyph[data-glyph-type="good"], glyph.custom-move-glyph[data-glyph-type="miss"] {width: 16px; height: 16px;}
+            glyph.custom-move-glyph[data-glyph-type="book"] svg, glyph.custom-move-glyph[data-glyph-type="best"] svg, glyph.custom-move-glyph[data-glyph-type="excellent"] svg, glyph.custom-move-glyph[data-glyph-type="good"] svg, glyph.custom-move-glyph[data-glyph-type="miss"] svg {width: 100% !important; height: 100% !important; fill: currentColor; display: block; transform: scale(1.65);}
+            glyph.custom-move-glyph[data-glyph-type="brilliant"], glyph.custom-move-glyph[data-glyph-type="great"], glyph.custom-move-glyph[data-glyph-type="inaccuracy"], glyph.custom-move-glyph[data-glyph-type="mistake"], glyph.custom-move-glyph[data-glyph-type="blunder"] {font-family: 'Noto Sans', sans-serif; font-size: 18px !important; font-weight: bold; line-height: 1; align-self: center !important;}
             move[data-local-analysis-type].active san, u8[data-local-analysis-type].active kw, move[data-local-analysis-type].active .custom-move-glyph, u8[data-local-analysis-type].active .custom-move-glyph { color: white !important; fill: white !important; }
             move[data-local-analysis-type="brilliant"].active, u8[data-local-analysis-type="brilliant"].active { background-color: #26c2a3 !important; }
             move[data-local-analysis-type="great"].active, u8[data-local-analysis-type="great"].active { background-color: #749bbf !important; }
@@ -1662,6 +1666,9 @@
             '.analyse__moves move:not(.empty)', '.analyse__moves u8:not(.empty)',
             '.study__moves move:not(.empty)', '.study__moves u8:not(.empty)',
             '.gamebook move:not(.empty)', '.gamebook u8:not(.empty)',
+            '.tview2 move:not(.empty)', '.tview2 u8:not(.empty)',
+            'rmoves move:not(.empty)', 'rmoves u8:not(.empty)',
+            'l4x move:not(.empty)', 'l4x u8:not(.empty)',
         ];
         return [...new Set([...document.querySelectorAll(selectors.join(','))])];
     }
@@ -1955,8 +1962,39 @@
         return `translate(${x * 100}%, ${y * 100}%)`;
     }
 
-    function isCheckmate(san) {
-        return san && (san.includes('#') || san.includes('++'));
+    function isCheckmate(san, moveIndex) {
+        if (san && (san.includes('#') || san.includes('++') || san.includes('‡'))) return true;
+        if (state.data && typeof moveIndex === 'number' && moveIndex === state.data.moves.length - 1) {
+            const termination = state.data.headers['Termination'] || state.data.headers['Result'] || '';
+            const evalRaw = state.data.moves[moveIndex]?.rawEvaluation || '';
+            if (/mate/i.test(termination) || /checkmate/i.test(termination) || /#0\b/.test(evalRaw)) return true;
+        }
+        return false;
+    }
+
+    function getGameWinner(move, moveIndex) {
+        if (!state.data || !move) return null;
+        if (isCheckmate(move.san, moveIndex)) {
+            const winner = moveIndex % 2 === 0 ? 'white' : 'black';
+            return { winner, loser: winner === 'white' ? 'black' : 'white', reason: 'checkmate' };
+        }
+        const isLastMove = typeof moveIndex === 'number' && moveIndex === state.data.moves.length - 1;
+        if (!isLastMove) return null;
+
+        const result = (state.data.headers['Result'] || '').trim();
+        const termination = (state.data.headers['Termination'] || '').trim();
+
+        if (result === '1/2-1/2' || /tablas|draw|stalemate|ahogado|repetition|repetición/i.test(termination)) {
+            return null;
+        }
+
+        if (result === '1-0' || /blancas.*ganado|white.*won/i.test(termination)) {
+            return { winner: 'white', loser: 'black', reason: 'resignation' };
+        }
+        if (result === '0-1' || /negras.*ganado|black.*won/i.test(termination)) {
+            return { winner: 'black', loser: 'white', reason: 'resignation' };
+        }
+        return null;
     }
 
     function syncBoardGlyph() {
@@ -1967,63 +2005,109 @@
             glyph.style.display = 'none';
             glyph.classList.add('local-analysis-native-hidden');
         });
-        const activeEntry = getMainlineMoveNodes().find((item) => item.node.classList.contains('active'));
+        const mainlineMoves = getMainlineMoveNodes();
+        const activeEntry = mainlineMoves.find((item) => item.node.classList.contains('active') || item.node.classList.contains('a'));
         const activeIndex = activeEntry?.index;
-        const move = state.data.moves[activeIndex];
-        if (!move) return;
+        const move = activeIndex !== undefined ? state.data.moves[activeIndex] : null;
+        if (!move) {
+            const domActive = document.querySelector('move.active, u8.active, move.a, u8.a, node.active');
+            if (domActive) {
+                console.warn('[Coronas] Se encontró nodo activo en el DOM pero no en mainlineMoves:', domActive.textContent);
+            }
+            return;
+        }
 
         const moveColor = activeIndex % 2 === 0 ? 'white' : 'black';
         const isFlipped = document.querySelector('.cg-wrap')?.classList.contains('orientation-black');
+        const gameWinner = getGameWinner(move, activeIndex);
 
-        if (move && isCheckmate(move.san)) {
-            const winnerColor = moveColor;
-            const whiteKingSquare = isFlipped ? 'e8' : 'e1';
-            const blackKingSquare = isFlipped ? 'e1' : 'e8';
+        console.log('[Coronas] Jugada activa:', {
+            index: activeIndex,
+            san: move.san,
+            color: moveColor,
+            winner: gameWinner?.winner || 'ninguno',
+            type: move.type,
+            termination: state.data.headers['Termination'] || state.data.headers['Result']
+        });
 
-            const winnerSquare = winnerColor === 'white' ? whiteKingSquare : blackKingSquare;
-            const loserSquare = winnerColor === 'white' ? blackKingSquare : whiteKingSquare;
+        if (gameWinner) {
+            const winnerColor = gameWinner.winner;
+            const loserColor = gameWinner.loser;
 
-            [winnerSquare, loserSquare].forEach((square, idx) => {
+            const winnerKingEl = board.querySelector(`piece.${winnerColor}.king, piece.king.${winnerColor}`);
+            const loserKingEl = board.querySelector(`piece.${loserColor}.king, piece.king.${loserColor}`);
+
+            const getTransform = (pieceEl, fallbackSquare) => {
+                if (pieceEl && pieceEl.style && pieceEl.style.transform) {
+                    return pieceEl.style.transform;
+                }
+                if (pieceEl && pieceEl.cgKey) {
+                    return squareToTransform(pieceEl.cgKey, isFlipped);
+                }
+                return squareToTransform(fallbackSquare, isFlipped);
+            };
+
+            const winnerTransform = getTransform(winnerKingEl, winnerColor === 'white' ? 'e1' : 'e8');
+            const loserTransform = getTransform(loserKingEl, loserColor === 'white' ? 'e1' : 'e8');
+
+            console.log('[Coronas] Pintando coronas:', {
+                winnerColor,
+                loserColor,
+                winnerKingFound: Boolean(winnerKingEl),
+                loserKingFound: Boolean(loserKingEl),
+                winnerTransform,
+                loserTransform
+            });
+
+            [
+                { transform: winnerTransform, iconType: 'WHITE_CROWN', color: '#81b64c' },
+                { transform: loserTransform, iconType: 'BLACK_CROWN', color: '#fa412d' }
+            ].forEach(({ transform, iconType, color }) => {
                 const marker = document.createElement('div');
                 marker.className = 'local-board-glyph';
                 Object.assign(marker.style, {
-                    left: '0', position: 'absolute', top: '0', transform: squareToTransform(square, isFlipped), width: '12.5%', height: '12.5%',
+                    left: '0', position: 'absolute', top: '0', transform: transform, width: '12.5%', height: '12.5%',
+                    zIndex: '15', pointerEvents: 'none',
+                });
+                const bubble = document.createElement('div');
+                Object.assign(bubble.style, {
+                    alignItems: 'center', backgroundColor: color, borderRadius: '50%',
+                    color: 'white', display: 'flex', fontFamily: '"Noto Sans", sans-serif',
+                    fontSize: 'clamp(11px, 2.2vw, 29px)', fontWeight: 'bold',
+                    height: '40%', justifyContent: 'center', position: 'absolute',
+                    right: '-11%', top: '-11%', width: '40%', zIndex: '16', pointerEvents: 'none',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.45)',
+                });
+                bubble.innerHTML = getMoveTypeIconHtml(iconType, '72%');
+                marker.appendChild(bubble);
+                board.appendChild(marker);
+            });
+        }
+
+        if (move && MOVE_TYPES[move.type]) {
+            const destination = getDestSquareFromSan(move.san, moveColor);
+            if (destination) {
+                const marker = document.createElement('div');
+                marker.className = 'local-board-glyph';
+                Object.assign(marker.style, {
+                    left: '0', position: 'absolute', top: '0', transform: squareToTransform(destination, isFlipped), width: '12.5%', height: '12.5%',
                     zIndex: '10', pointerEvents: 'none',
                 });
                 const bubble = document.createElement('div');
                 Object.assign(bubble.style, {
-                    alignItems: 'center', backgroundColor: 'transparent', borderRadius: '50%',
-                    color: 'white', display: 'flex', justifyContent: 'center',
-                    position: 'absolute', right: '0%', top: '0%', width: '100%', height: '100%', zIndex: '11',
+                    alignItems: 'center', backgroundColor: MOVE_TYPES[move.type].color, borderRadius: '50%',
+                    color: 'white', display: 'flex', fontFamily: '"Noto Sans", sans-serif', fontSize: 'clamp(11px, 2.2vw, 29px)', fontWeight: 'bold',
+                    height: '40%', justifyContent: 'center', position: 'absolute', right: '-11%', top: '-11%', width: '40%', zIndex: '11',
                 });
-                const iconType = idx === 0 ? 'WHITE_CROWN' : 'BLACK_CROWN';
-                bubble.innerHTML = getMoveTypeIconHtml(iconType, '100%');
+                bubble.innerHTML = getMoveTypeIconHtml(move.type);
                 marker.appendChild(bubble);
                 board.appendChild(marker);
-            });
-        } else if (move && MOVE_TYPES[move.type]) {
-            const destination = getDestSquareFromSan(move.san, moveColor);
-            if (!destination) return;
-            const marker = document.createElement('div');
-            marker.className = 'local-board-glyph';
-            Object.assign(marker.style, {
-                left: '0', position: 'absolute', top: '0', transform: squareToTransform(destination, isFlipped), width: '12.5%', height: '12.5%',
-                zIndex: '10', pointerEvents: 'none',
-            });
-            const bubble = document.createElement('div');
-            Object.assign(bubble.style, {
-                alignItems: 'center', backgroundColor: MOVE_TYPES[move.type].color, borderRadius: '50%',
-                color: 'white', display: 'flex', fontFamily: '"Noto Sans", sans-serif', fontSize: 'clamp(11px, 2.2vw, 29px)', fontWeight: 'bold',
-                height: '40%', justifyContent: 'center', position: 'absolute', right: '-11%', top: '-11%', width: '40%', zIndex: '11',
-            });
-            bubble.innerHTML = getMoveTypeIconHtml(move.type);
-            marker.appendChild(bubble);
-            board.appendChild(marker);
+            }
         }
     }
 
     function updateActivePoint() {
-        const activeIndex = getMainlineMoveNodes().find((item) => item.node.classList.contains('active'))?.index;
+        const activeIndex = getMainlineMoveNodes().find((item) => item.node.classList.contains('active') || item.node.classList.contains('a'))?.index;
         document.querySelectorAll('.local-analysis-point').forEach((point) => {
             point.classList.toggle('is-active', Number(point.dataset.moveIndex) === activeIndex);
         });
