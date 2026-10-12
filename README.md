@@ -8,15 +8,15 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 - **Análisis Local Preciso:** Evalúa cada jugada con el motor Stockfish local para clasificar los movimientos (Brillante, Error, etc.).
 - **Integración con Lichess:** Crea estudios privados y gestiona los capítulos automáticamente usando la API REST de Lichess.
 - **Análisis Didáctico con IA:** Evalúa la partida anotada mediante Google Gemini para generar comentarios detallados y explicaciones didácticas en lenguaje natural.
-- **Automatización y Consola Web:** Incluye scripts para inyectar botones en Chess.com, seguir los logs de progreso en vivo dentro del propio navegador y visualizar métricas.
+- **Automatización y Consola Web:** Incluye scripts para inyectar botones en Chess.com, seguir los logs de progreso en vivo dentro del propio navegador mediante un servicio HTTP local en `127.0.0.1:8765` (puerto configurable) y visualizar métricas.
 - **Gestión de Sesión inteligente:** Extrae automáticamente las cookies necesarias (`lila2`) de tu navegador local (Chrome, Brave, Edge, etc.) para autenticarse en Lichess sin complicaciones.
 
 ## 📋 Requisitos Previos
 
 - **Python 3.10 o superior** instalado en tu sistema.
-- **Binario de Stockfish** (ejecutable de Windows) para el análisis local. Incluido en el repositorio en la carpeta `stockfish`.
+- **Binario de Stockfish:** Motor de ajedrez para el análisis local. Puedes descargarlo directamente desde la [página oficial de Stockfish](https://stockfishchess.org/download/windows) (o usar el ejecutable incluido en la carpeta `stockfish/`). Colócalo en la carpeta `stockfish/` como `stockfish-windows-x86-64-universal.exe` o ajusta la variable `STOCKFISH_PATH` en tu `.env`.
 - Una cuenta gratuita en **Lichess.org**.
-- Un Token API de Lichess (debes crearlo desde las preferencias de tu cuenta de Lichess).
+- Un Token API de Lichess con permiso `study:write` (creado en [preferencias de Lichess / Tokens API](https://lichess.org/account/oauth/token)).
 - Una clave API gratuita de **Google Gemini** (debes crearla desde Google AI Studio).
 
 ## 🛠️ Instalación
@@ -24,7 +24,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 1. Clona o descarga este repositorio en tu ordenador.
 2. Abre una terminal en la carpeta del proyecto e instala las dependencias de Python:
    ```bash
-   pip install playwright google-generativeai chess
+   pip install playwright google-generativeai python-chess python-dotenv
    ```
 3. Instala los navegadores necesarios para Playwright:
    ```bash
@@ -32,11 +32,16 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
    ```
 4. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
-   - Importa `Boton flotante/chess_button_analyzer.js`.
-   - Este script tiene dos funciones:
-      - En Chess.com añade el botón verde "🤖 Analizar con IA" junto a un modal con consola integrada para configurar y seguir el progreso en tiempo real.
-      - En el estudio final de Lichess muestra el gráfico SVG local, las anotaciones de la IA y la clasificación detallada de las jugadas (Brillante, Genial, Mejor, etc.) sin depender del motor de Lichess.
-   - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto enseñará a Windows a abrir el analizador cuando detecte el protocolo `ajedrez://`.
+   - Importa `Boton flotante/chess_button_analyzer.js` y haz clic en **Instalar** (o guarda con `Ctrl + S`).
+   - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto asocia el protocolo `ajedrez://` directamente a `pythonw.exe` para ejecutar el analizador y Stockfish de forma 100% silenciosa en segundo plano (sin parpadeos ni ventanas de consola en Windows).
+   - **Avisos y permisos esperados la primera vez:**
+     - *Permisos de red en Tampermonkey:* Al guardar o ejecutar el script, Tampermonkey solicitará confirmación para conectarse a `127.0.0.1` (`@connect`). Elige **"Permitir siempre"** para autorizar la lectura de los logs locales.
+     - *Modo Desarrollador (Chrome, Brave, Edge):* En navegadores Chromium, Tampermonkey puede solicitar activar el interruptor de "Modo de desarrollador" en la gestión de extensiones (`chrome://extensions`) para autorizar scripts de usuario.
+     - *Diálogo del navegador al abrir la aplicación:* La primera vez que pulses **INICIAR** en Chess.com, el navegador mostrará una ventana emergente (*"¿Deseas abrir Analizador de partidas?"* o *"chess.com quiere abrir ajedrez://"*). Marca la casilla **"Permitir siempre a chess.com abrir estos enlaces"** y haz clic en **Abrir enlace** o **Permitir**.
+     - *Comunicación local:* El backend inicia un servidor temporal en `127.0.0.1:8765` (configurable desde los ajustes de la modal o `.env`) restringido a la propia máquina para emitir los logs hacia la interfaz. Al estar confinado a loopback, no expone datos a la red ni genera alertas del Firewall de Windows.
+   - **Funciones del script:**
+     - En Chess.com añade el botón verde "🤖 Analizar con IA" junto a un modal con consola integrada para configurar opciones (profundidad, puerto, modelo de IA) y seguir el progreso en tiempo real.
+     - En el estudio final de Lichess muestra el gráfico SVG local, las anotaciones de la IA y la clasificación detallada de las jugadas (Brillante, Genial, Mejor, etc.) sin depender del motor de Lichess.
 
 ## ⚙️ Configuración (.env)
 
@@ -49,19 +54,26 @@ LICHESS_COOKIE=tu_cookie_lila2_aqui (Opcional, el script puede extraerla de tu n
 GEMINI_API_KEY=tu_clave_api_de_gemini
 GEMINI_API_KEY_1=tu_clave_api_alternativa_1 (Opcional, se usará si la principal agota su cuota)
 GEMINI_API_KEY_2=tu_clave_api_alternativa_2 (Opcional, puedes añadir más API KEY si lo deseas)
-GEMINI_MODEL=el_modelo_a_usar (ej: gemini-3.5-flash, gemini-3.1-pro-preview, etc.)
+GEMINI_MODEL=el_modelo_a_usar (ej: gemini-3.5-flash, gemini-flash-lite-latest, etc.)
+SERVER_PORT=8765 (Opcional, puerto HTTP local para la comunicación web, por defecto 8765)
 STOCKFISH_PATH=stockfish/stockfish-windows-x86-64-universal.exe (Opcional, busca por defecto en la subcarpeta stockfish)
-STOCKFISH_THREADS=2 (Opcional, hilos de CPU asignados a Stockfish)
-STOCKFISH_HASH=128 (Opcional, memoria RAM en MB asignada a Stockfish)
-STOCKFISH_DEPTH=20 (Opcional, profundidad de análisis, por defecto 20)
+STOCKFISH_THREADS=1 (Opcional, hilos de CPU; se recomienda 1 para garantizar un análisis determinista y reproducible)
+STOCKFISH_HASH=512 (Opcional, memoria RAM en MB asignada a Stockfish, por defecto 512)
+STOCKFISH_DEPTH=18 (Opcional, profundidad de análisis; a mayor profundidad mayor tiempo de cálculo exponencial, 14 a 18 es el rango óptimo)
 POLYGLOT_BOOK_PATH=stockfish/polyglot.bin (Opcional, busca por defecto en la subcarpeta stockfish)
+OPENING_EXPLORER_ENABLED=true (Opcional, consulta el explorador de aperturas de Lichess para libros teóricos)
 ```
+
+> **Nota:** Todos estos valores también se pueden configurar y guardar directamente desde el icono de engranaje (⚙️) del modal en Chess.com, el cual sincroniza y actualiza automáticamente el archivo `.env`.
 
 ## 🎮 Uso
 
-La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com (ver instrucciones de instalación arriba). Una vez instalado, haz clic en el botón verde "🤖 Analizar con IA" en una partida y pulsa en **INICIAR**. Podrás seguir los registros y el progreso en directo en el propio modal de la página.
+La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com:
+1. Haz clic en el botón verde **"🤖 Analizar con IA"** en una partida.
+2. Pulsa en **INICIAR**. El análisis arrancará de forma completamente silenciosa en segundo plano (vía `pythonw.exe`) y podrás seguir el progreso en directo en el propio modal.
+3. Puedes cancelar el proceso en cualquier momento pulsando el aspa (**✖**) del modal, lo cual cerrará inmediatamente la tarea de Python y el servidor local.
 
-Si no deseas instalar el botón flotante, puedes usar el archivo por lotes en Windows:
+Si prefieres ejecutarlo manualmente con consola visible, puedes usar el archivo por lotes en Windows:
 
 **Método rápido con script (Auto-detección):**
 1. Copia la URL de la partida de Chess.com en tu navegador (`Ctrl + C`).
@@ -89,10 +101,11 @@ Una vez introducida la URL, el script realiza el flujo completo:
 ## 📁 Estructura del Proyecto
 
 - `main.py`: Archivo principal que orquesta el flujo completo de ejecución.
-- `extraer_pgn.py`: Módulo con Playwright para extraer el texto PGN desde Chess.com.
+- `extraer_pgn.py`: Módulo para extraer el texto PGN desde Chess.com (vía endpoint HTTP y decodificación TCN, con Playwright como fallback).
 - `lichess_api.py`: Comunicación con la API REST de Lichess.
 - `analisis_ia.py`: Conexión con Google Gemini para generar los comentarios en español.
-- `local_analysis.py`: Ejecuta Stockfish localmente para evaluar y clasificar cada jugada.
+- `local_analysis.py`: Ejecuta Stockfish localmente para evaluar cada posición y jugada.
+- `advanced_classification.py`: Algoritmo de clasificación de jugadas (Brillante, Gran jugada, Mejor, Error, Imprecisión, etc.) basado en Expected Points.
 - `crear_estudio.py`: Lógica para estructurar el estudio en Lichess con los comentarios.
 - `browser_utils.py`: Utilidad para inicializar el navegador Playwright correcto.
 - `login_manual.py`: Utilidad para extraer cookies de sesión de los navegadores locales.
@@ -101,4 +114,5 @@ Una vez introducida la URL, el script realiza el flujo completo:
 
 ## 📜 Licencia
 
-Este proyecto es de código abierto y está disponible bajo los términos de la Licencia MIT.
+- El código fuente de este proyecto se distribuye bajo los términos de la **Licencia MIT**.
+- **Stockfish** es un proyecto independiente desarrollado por la comunidad de Stockfish y licenciado bajo la **GNU General Public License v3 (GPL v3)**. Consulta los detalles en el [repositorio de Stockfish](https://github.com/official-stockfish/Stockfish).

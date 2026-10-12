@@ -1,22 +1,263 @@
 // ==UserScript==
 // @name         Analizador Ajedrez (Chess.com y Lichess)
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Inicia el análisis desde Chess.com y muestra el análisis local en Lichess.
 // @author       Victor
 // @match        *://*.chess.com/game/*
+// @match        *://*.chess.com/games/*
+// @match        *://*.chess.com/analysis/*
+// @match        *://*.chess.com/live/*
 // @match        https://lichess.org/study/*
+// @connect      127.0.0.1
+// @connect      localhost
+// @connect      *
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
 (function () {
     'use strict';
 
+    const localFetch = (url, options = {}) => {
+        return new Promise((resolve, reject) => {
+            const gmXhr = (typeof GM_xmlhttpRequest !== 'undefined') ? GM_xmlhttpRequest :
+                (typeof GM !== 'undefined' && GM.xmlHttpRequest) ? GM.xmlHttpRequest : null;
+            if (gmXhr) {
+                gmXhr({
+                    method: options.method || 'GET',
+                    url: url,
+                    headers: options.headers || {},
+                    data: options.body || undefined,
+                    timeout: 4000,
+                    onload: (res) => {
+                        resolve({
+                            ok: res.status >= 200 && res.status < 300,
+                            status: res.status,
+                            statusText: res.statusText,
+                            text: () => Promise.resolve(res.responseText),
+                            json: () => {
+                                try {
+                                    return Promise.resolve(JSON.parse(res.responseText));
+                                } catch (e) {
+                                    return Promise.reject(e);
+                                }
+                            }
+                        });
+                    },
+                    onerror: (err) => reject(new Error(err && (err.error || err.statusText) ? (err.error || err.statusText) : 'Error de conexion GM')),
+                    ontimeout: () => reject(new Error('Timeout de conexion local'))
+                });
+            } else {
+                fetch(url, options).then(resolve).catch(reject);
+            }
+        });
+    };
+
     const currentUrl = window.location.href;
 
+    // Función para extraer el PGN de Chess.com
+    async function getChessComPGN() {
+        // Método 1: Intentar obtener del objeto global
+        try {
+            if (window.___INITIAL_STATE__?.game?.pgn) {
+                return window.___INITIAL_STATE__?.game?.pgn;
+            }
+            if (window.Game?.data?.game?.pgn) {
+                return window.Game.data.game.pgn;
+            }
+            if (window.gameData?.pgn) {
+                return window.gameData.pgn;
+            }
+        } catch (e) {
+            console.log('Método 1 falló:', e.message);
+        }
+
+        // Método 2: Buscar script con tipo application/x-chess-pgn
+        try {
+            const pgnScript = document.querySelector('script[type="application/x-chess-pgn"]');
+            if (pgnScript && pgnScript.textContent.trim()) {
+                return pgnScript.textContent;
+            }
+        } catch (e) {
+            console.log('Método 2 falló:', e.message);
+        }
+
+        // Método 3: Buscar en elementos con clase o id específico
+        try {
+            const pgnElements = document.querySelectorAll('[class*="pgn"], [id*="pgn"], [data-pgn]');
+            for (const el of pgnElements) {
+                if (el.textContent?.includes('[Event') || el.getAttribute('data-pgn')?.includes('[Event')) {
+                    const pgnText = el.getAttribute('data-pgn') || el.textContent;
+                    if (pgnText?.includes('[Event')) {
+                        return pgnText;
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('Método 3 falló:', e.message);
+        }
+
+        // Método 4: Buscar en elementos hidden o textarea
+        try {
+            const inputs = document.querySelectorAll('input[type="hidden"], textarea');
+            for (const input of inputs) {
+                if (input.value?.includes('[Event')) {
+                    return input.value;
+                }
+            }
+        } catch (e) {
+            console.log('Método 4 falló:', e.message);
+        }
+
+        // Método 5: Intentar obtener de la API con GM_xmlhttpRequest (para evitar CORS)
+        const gameId = window.location.pathname.split('/').pop();
+        const pgnUrl = `https://www.chess.com/news/view/game/pgn/${gameId}`;
+
+        try {
+            // Usar GM_xmlhttpRequest si está disponible (evita CORS)
+            if (typeof GM_xmlhttpRequest !== 'undefined') {
+                const pgn = await new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: pgnUrl,
+                        headers: { 'Accept': 'application/x-chess-pgn' },
+                        timeout: 10000,
+                        onload: function (response) {
+                            if (response.status === 200 && response.responseText.includes('[Event')) {
+                                resolve(response.responseText);
+                            } else {
+                                reject(new Error('PGN no válido'));
+                            }
+                        },
+                        onerror: function (error) {
+                            reject(new Error(error.statusText || 'Error al obtener PGN'));
+                        },
+                        ontimeout: function () {
+                            reject(new Error('Timeout al obtener PGN'));
+                        }
+                    });
+                });
+                if (pgn) return pgn;
+            }
+        } catch (e) {
+            console.log('Método 5 (GM_xmlhttpRequest) falló:', e.message);
+        }
+
+        // Método 5b: Intentar con fetch normal (para navegadores modernos)
+        try {
+            const urls = [
+                `https://www.chess.com/callback/live/game/${gameId}`,
+                pgnUrl,
+                `https://www.chess.com/live/game/${gameId}.pgn`
+            ];
+
+            for (const url of urls) {
+                try {
+                    const response = await fetch(url, {
+                        headers: { 'Accept': 'application/x-chess-pgn' },
+                        credentials: 'include',
+                        mode: 'no-cors'
+                    });
+                    if (response.ok) {
+                        const text = await response.text();
+                        if (text.includes('[Event')) {
+                            return text;
+                        }
+                    }
+                } catch (e) {
+                    // Continuar con la siguiente URL
+                }
+            }
+        } catch (e) {
+            console.log('Método 5b (fetch) falló:', e.message);
+        }
+
+        // Método 5b: Intentar simular clic en botón de descarga PGN si existe
+        try {
+            const downloadButtons = document.querySelectorAll('a[download], button[download], a[href*=".pgn"], button[class*="pgn"]');
+            for (const btn of downloadButtons) {
+                const href = btn.getAttribute('href') || btn.getAttribute('data-href');
+                if (href && href.includes('.pgn')) {
+                    try {
+                        const response = await fetch(href, {
+                            headers: { 'Accept': 'application/x-chess-pgn' },
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            const text = await response.text();
+                            if (text.includes('[Event')) {
+                                return text;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignorar
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('Método 5b falló:', e.message);
+        }
+
+        // Método 6: Extraer movimientos del DOM y reconstruir PGN
+        try {
+            const moves = [];
+            const moveElements = document.querySelectorAll('.move-list .move, .game-moves .move, [data-move], .move-notation span');
+
+            if (moveElements.length > 0) {
+                // Intentar obtener jugadores
+                const whitePlayer = document.querySelector('.board-layout-top [data-test-element="user-tagline-username"]')?.textContent?.trim() || 'White';
+                const blackPlayer = document.querySelector('.board-layout-bottom [data-test-element="user-tagline-username"]')?.textContent?.trim() || 'Black';
+                const resultEl = document.querySelector('[data-test-element="game-status"], .game-result');
+                const result = resultEl?.textContent?.trim() || '*';
+
+                // Obtener fecha
+                const dateEl = document.querySelector('[data-test-element="game-date"]');
+                const date = dateEl?.textContent?.trim() || new Date().toISOString().split('T')[0];
+
+                // Reconstruir PGN
+                let pgn = `[Event "?"]\n`;
+                pgn += `[Site "Chess.com"]\n`;
+                pgn += `[Date "${date}"]\n`;
+                pgn += `[White "${whitePlayer}"]\n`;
+                pgn += `[Black "${blackPlayer}"]\n`;
+                pgn += `[Result "${result}"]\n`;
+                pgn += `[WhiteElo "?"]\n`;
+                pgn += `[BlackElo "?"]\n`;
+                pgn += `[ECO "?"]\n`;
+                pgn += `[PlyCount "${moveElements.length}"]\n\n`;
+
+                // Extraer movimientos
+                for (const el of moveElements) {
+                    const moveText = el.textContent?.trim();
+                    if (moveText && !isNaN(parseInt(moveText[0]))) {
+                        // Es un número de jugada, obtener el movimiento
+                        const fullText = el.parentNode?.textContent || el.textContent;
+                        const moveMatch = fullText.match(/(\d+\.\s*[a-zA-Z0-9]+)/g);
+                        if (moveMatch) {
+                            pgn += moveMatch.join(' ') + ' ';
+                        }
+                    }
+                }
+
+                pgn += result + '\n\n';
+
+                if (pgn.includes('1.') && pgn.includes('[Event')) {
+                    console.log('PGN reconstruido desde el DOM');
+                    return pgn;
+                }
+            }
+        } catch (e) {
+            console.log('Método 6 falló:', e.message);
+        }
+
+        console.error('No se pudo obtener el PGN de Chess.com: todos los métodos fallaron');
+        return null;
+    }
+
     // Se añade el acceso al programa local desde una partida de Chess.com.
-    if (currentUrl.includes('chess.com/game/')) {
+    if (currentUrl.includes('chess.com/game/') || currentUrl.includes('chess.com/games/') || currentUrl.includes('chess.com/analysis/') || currentUrl.includes('chess.com/live/')) {
         const button = document.createElement('button');
         button.textContent = '🤖 Analizar con IA';
         Object.assign(button.style, {
@@ -43,26 +284,29 @@
                 return val !== null ? val : def;
             };
 
-            // Find current game players and try to guess White
-            const players = new Set();
-            document.querySelectorAll('[data-test-element="user-tagline-username"], .user-username-component').forEach(el => {
-                if (el.textContent.trim()) players.add(el.textContent.trim());
-            });
-            const playerArray = Array.from(players);
-
-            // Heuristic to find white: bottom player is usually white unless flipped, but let's just default to the first player if unsure
-            let whitePlayer = playerArray.length > 0 ? playerArray[0] : '';
-            const bottomPlayerEl = document.querySelector('.board-layout-bottom [data-test-element="user-tagline-username"], .board-layout-bottom .user-username-component');
-            if (bottomPlayerEl && bottomPlayerEl.textContent.trim()) {
-                whitePlayer = bottomPlayerEl.textContent.trim();
-            }
-            const blackPlayer = playerArray.find(p => p !== whitePlayer) || '';
+            // Find current game players (only the 2 players of the current game)
+            const topPlayerEl = document.querySelector('.board-layout-top [data-test-element="user-tagline-username"]');
+            const bottomPlayerEl = document.querySelector('.board-layout-bottom [data-test-element="user-tagline-username"]');
+            const whitePlayer = topPlayerEl?.textContent?.trim() || '';
+            const blackPlayer = bottomPlayerEl?.textContent?.trim() || '';
+            const playerArray = [whitePlayer, blackPlayer].filter(p => p);
+            const players = new Set(playerArray);
 
             let p_player = getSaved('chesscom_player', '');
             let p_depth = getSaved('stockfish_depth', '18');
             let p_model = getSaved('gemini_model', 'gemini-flash-lite-latest');
             let p_threads = getSaved('stockfish_threads', '1');
             let p_hash = getSaved('stockfish_hash', '512');
+            let p_port = getSaved('server_port', '8765');
+            let p_explorer = getSaved('opening_explorer_enabled', 'true');
+
+            const getServerPort = () => {
+                const portEl = document.getElementById('modal-port');
+                if (portEl) {
+                    return portEl.value.trim();
+                }
+                return p_port !== null ? String(p_port).trim() : '';
+            };
 
             // Secret fields
             let lichess_username = getSaved('lichess_username', '');
@@ -116,6 +360,9 @@
                 position: 'relative', overflow: 'hidden', display: 'flex'
             });
 
+            let stepTimerInterval = null;
+            let pollInterval = null;
+
             const closeBtn = document.createElement('div');
             closeBtn.innerHTML = '✖';
             Object.assign(closeBtn.style, {
@@ -125,8 +372,10 @@
             closeBtn.onmouseenter = () => closeBtn.style.color = '#fff';
             closeBtn.onmouseleave = () => closeBtn.style.color = '#888';
             closeBtn.onclick = () => {
+                if (stepTimerInterval) clearInterval(stepTimerInterval);
+                if (pollInterval) clearInterval(pollInterval);
                 overlay.remove();
-                fetch('http://localhost:8765/exit', { method: 'POST' }).catch(() => { });
+                localFetch(`http://127.0.0.1:${getServerPort()}/exit`, { method: 'POST' }).catch(() => { });
             };
 
             const inputStyle = `
@@ -237,6 +486,14 @@
                         <label style="font-weight: bold; color: #fff;">Jugador Chess.com (defecto):</label>
                         <input type="text" id="modal-player" value="${p_player}" style="${inputStyle}">
                     </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-weight: bold; color: #fff;">Puerto Servidor Local:</label>
+                        <input type="number" id="modal-port" min="1024" max="65535" value="${p_port}" style="${inputStyle}">
+                    </div>
+                    <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+                        <label style="font-weight: bold; color: #fff;">Explorador de aperturas (Lichess):</label>
+                        <input type="checkbox" id="modal-explorer" ${p_explorer === 'true' || p_explorer === true ? 'checked' : ''} style="width: 20px; height: 20px; cursor: pointer;">
+                    </div>
                     ${makeSecretInput('modal-lichess-token', 'Token de Lichess', lichess_token)}
                     ${makeSecretInput('modal-lichess-cookie', 'Cookie de Lichess', lichess_cookie)}
                     
@@ -310,7 +567,7 @@
 
             const sendInput = async (val) => {
                 try {
-                    await fetch('http://localhost:8765/input', {
+                    await localFetch(`http://127.0.0.1:${getServerPort()}/input`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ input: val })
@@ -683,6 +940,7 @@
 
                     document.getElementById('modal-threads').value = 1;
                     document.getElementById('modal-hash').value = 512;
+                    document.getElementById('modal-port').value = 8765;
                     document.getElementById('modal-player').value = '';
                     document.getElementById('modal-lichess-token').value = '';
                     document.getElementById('modal-lichess-cookie').value = '';
@@ -729,6 +987,13 @@
 
                 localStorage.setItem('agy_stockfish_threads', document.getElementById('modal-threads').value);
                 localStorage.setItem('agy_stockfish_hash', document.getElementById('modal-hash').value);
+                const savedPort = document.getElementById('modal-port') ? document.getElementById('modal-port').value.trim() : '8765';
+                localStorage.setItem('agy_server_port', savedPort);
+                p_port = savedPort;
+
+                const savedExplorer = document.getElementById('modal-explorer')?.checked ? 'true' : 'false';
+                localStorage.setItem('agy_opening_explorer_enabled', savedExplorer);
+                p_explorer = savedExplorer;
 
                 localStorage.setItem('agy_lichess_token', document.getElementById('modal-lichess-token').value);
 
@@ -765,7 +1030,7 @@
                 backBtn.onclick();
             };
 
-            document.getElementById('modal-start').onclick = () => {
+            document.getElementById('modal-start').onclick = async () => {
                 const targetPlayer = document.getElementById('modal-target').value;
                 const depth = document.getElementById('modal-depth').value;
                 const model = document.getElementById('modal-model').value;
@@ -775,7 +1040,20 @@
                 const lichessCookie = document.getElementById('modal-lichess-cookie').value;
                 const apiKey = document.querySelector('.gemini-key-row input').value;
 
-                if (!targetPlayer || !depth || !model || model.startsWith('Error') || !threads || !hash || !lichessToken || !lichessCookie || !apiKey) {
+                const serverPort = getServerPort();
+
+                // Extraer PGN de Chess.com (si falla, se enviará el gameId para que el servidor lo obtenga)
+                let pgn = null;
+                let gameId = null;
+                if (currentUrl.includes('chess.com/')) {
+                    gameId = window.location.pathname.split('/').pop();
+                    pgn = await getChessComPGN();
+                    if (!pgn) {
+                        console.log('No se pudo obtener el PGN desde el navegador. El servidor local lo extraerá usando el gameId:', gameId);
+                    }
+                }
+
+                if (!targetPlayer || !depth || !model || model.startsWith('Error') || !threads || !hash || !serverPort || !lichessToken || !lichessCookie || !apiKey) {
                     const warningOverlay = document.createElement('div');
                     Object.assign(warningOverlay.style, {
                         position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
@@ -808,9 +1086,21 @@
                     GEMINI_MODEL: model,
                     STOCKFISH_THREADS: document.getElementById('modal-threads').value,
                     STOCKFISH_HASH: document.getElementById('modal-hash').value,
+                    SERVER_PORT: serverPort,
+                    OPENING_EXPLORER_ENABLED: document.getElementById('modal-explorer')?.checked ? 'true' : 'false',
                     LICHESS_TOKEN: document.getElementById('modal-lichess-token').value,
                     LICHESS_COOKIE: document.getElementById('modal-lichess-cookie').value
                 };
+
+                // Añadir gameId para Chess.com (el servidor local puede usarlo para extraer el PGN)
+                if (gameId) {
+                    configData.CHESSCOM_GAME_ID = gameId;
+                }
+
+                // Añadir PGN si está disponible
+                if (pgn) {
+                    configData.PGN = pgn;
+                }
 
                 const keyRows = document.querySelectorAll('.gemini-key-row input');
                 keyRows.forEach((input, index) => {
@@ -826,7 +1116,12 @@
                 // Usamos solo origin y pathname para evitar que # o ? previos corrompan el payload
                 const baseUrl = window.location.origin + window.location.pathname;
                 const uri = `ajedrez://${baseUrl}?payload=${payloadBase64}`;
-                window.location.href = uri;
+                const link = document.createElement('a');
+                link.href = uri;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => link.remove(), 2000);
 
                 // Transition to progress view instead of terminal view
                 mainView.style.transform = 'translateX(-100%)';
@@ -869,14 +1164,19 @@
                     }
                 };
 
-                let stepTimerInterval = setInterval(updateTimerText, 1000);
+                if (stepTimerInterval) clearInterval(stepTimerInterval);
+                stepTimerInterval = setInterval(updateTimerText, 1000);
 
                 let pollFailures = 0;
                 let lastLogCount = 0;
+                let hasConnected = false;
+                let isSuccess = false;
+                let lastPollError = '';
 
-                const pollInterval = setInterval(async () => {
+                if (pollInterval) clearInterval(pollInterval);
+                pollInterval = setInterval(async () => {
                     try {
-                        const res = await fetch('http://localhost:8765/status');
+                        const res = await localFetch(`http://127.0.0.1:${getServerPort()}/status`);
                         if (res.ok) {
                             const data = await res.json();
                             if (data.logs && data.logs.length > lastLogCount) {
@@ -893,6 +1193,7 @@
                                     }
                                     else if (log.includes('PASO 3:')) { currentStepBaseText = 'Generando comentarios con IA...'; currentStepStartTime = Date.now(); progSubtext.textContent = ''; updateTimerText(); }
                                     else if (log.includes('PASO 4:')) { currentStepBaseText = 'Creando estudio interactivo...'; currentStepStartTime = Date.now(); progSubtext.textContent = ''; updateTimerText(); }
+                                    else if (log.includes('¡Estudio completado con exito!') || log.includes('Estudio creado correctamente:')) { isSuccess = true; }
                                     else if (log.includes('[Error]')) { progSubtext.textContent = log.trim(); progSubtext.style.color = '#d8504f'; }
                                     else if (log.includes('[Aviso]')) { progSubtext.textContent = log.trim(); progSubtext.style.color = '#f59e0b'; }
                                     else if (log.includes('[WEB_INPUT_REQUIRED]')) {
@@ -964,7 +1265,11 @@
                                                 });
 
                                                 btn.onclick = () => {
-                                                    fetch('http://localhost:8765/input', { method: 'POST', body: JSON.stringify({ input: action }) });
+                                                    localFetch(`http://127.0.0.1:${getServerPort()}/input`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ input: action })
+                                                    }).catch(() => { });
                                                     if (action === 'SALIR') {
                                                         progressView.style.left = '100%';
                                                         mainView.style.transform = 'translateX(0)';
@@ -983,7 +1288,11 @@
 
                                             const btnReintentar = createBtn('Reintentar', '#81b64c', '#5a8231', '');
                                             btnReintentar.onclick = () => {
-                                                fetch('http://localhost:8765/input', { method: 'POST', body: JSON.stringify({ input: newSelect.value }) });
+                                                localFetch(`http://127.0.0.1:${getServerPort()}/input`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ input: newSelect.value })
+                                                }).catch(() => { });
                                                 progInteractive.style.display = 'none';
                                                 progSpinner.style.display = 'flex';
                                                 progSubtext.textContent = '';
@@ -1081,19 +1390,34 @@
                                     }
                                 }
                             }
+                            hasConnected = true;
                             pollFailures = 0;
                         } else {
                             pollFailures++;
+                            if (!hasConnected) {
+                                progSubtext.textContent = `Conectando con http://127.0.0.1:${serverPort} (${pollFailures}/40)...`;
+                            }
                         }
                     } catch (e) {
-                        console.error("Poll Error:", e);
+                        lastPollError = (e && e.message) ? e.message : String(e);
                         pollFailures++;
+                        if (!hasConnected) {
+                            progSubtext.textContent = `Conectando con http://127.0.0.1:${serverPort} (${pollFailures}/40)...`;
+                        }
                     }
-                    if (pollFailures > 10) {
+                    const maxFailures = hasConnected ? 10 : 40;
+                    if (pollFailures > maxFailures) {
                         clearInterval(pollInterval);
+                        clearInterval(stepTimerInterval);
                         progSpinner.style.display = 'none';
                         progInteractive.style.display = 'flex';
-                        progInteractive.innerHTML = '<div style="color: #d8504f; font-weight: bold; text-align: center;">Proceso finalizado.</div>';
+                        if (isSuccess) {
+                            progInteractive.innerHTML = '<div style="color: #81b64c; font-weight: bold; text-align: center; font-size: 16px;">✓ ¡Análisis completado con éxito!<br><span style="color:#aaa; font-size:13px; font-weight:normal; margin-top:8px; display:inline-block;">El estudio se ha abierto en una nueva pestaña de Lichess.</span></div>';
+                        } else if (!hasConnected) {
+                            progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">No se pudo conectar con el servidor local en el puerto ${serverPort || 'desconocido'}.<br><span style="color: #aaa; font-size: 13px; font-weight: normal; margin-top: 6px; display: inline-block;">${lastPollError ? 'Detalle: ' + lastPollError + '<br>' : ''}Verifica que el puerto coincida y que no esté bloqueado.</span></div>`;
+                        } else {
+                            progInteractive.innerHTML = '<div style="color: #d8504f; font-weight: bold; text-align: center;">Proceso finalizado.</div>';
+                        }
                     }
                 }, 500);
             };
@@ -1125,19 +1449,70 @@
         }
     }
 
-    // Se cambian aquí los símbolos textuales de cada clasificación.
+    // Se configuran aquí los colores y símbolos de cada clasificación según Chess.com.
     const MOVE_TYPES = {
-        BRILLIANT: { label: 'Brillante', symbol: '!!', color: '#1baca6' },
-        GREAT: { label: 'Genial', symbol: '!', color: '#4f9ed8' },
-        BOOK: { label: 'Libro', color: '#a88865' },
-        BEST: { label: 'Mejor', symbol: '=', color: '#81b64c' },
-        EXCELLENT: { label: 'Excelente', symbol: '!', color: '#96bc4b' },
-        GOOD: { label: 'Bueno', symbol: '!?', color: '#b2d35e' },
-        INACCURACY: { label: 'Imprecisión', symbol: '?!', color: '#e5b74b' },
-        MISTAKE: { label: 'Error', symbol: '?', color: '#e58b45' },
-        MISS: { label: 'Omisión', symbol: '×', color: '#e66b5b' },
-        BLUNDER: { label: 'Error grave', symbol: '??', color: '#d8504f' },
+        BRILLIANT: { label: 'Brillante', symbol: '!!', color: '#26c2a3' },
+        GREAT: { label: 'Genial', symbol: '!', color: '#749bbf' },
+        BOOK: { label: 'Libro', symbol: '', color: '#d5a47d' },
+        BEST: { label: 'Mejor', symbol: '★', color: '#81b64c' },
+        EXCELLENT: { label: 'Excelente', symbol: '👍', color: '#84a956' },
+        GOOD: { label: 'Bueno', symbol: '✓', color: '#95b776' },
+        INACCURACY: { label: 'Imprecisión', symbol: '?!', color: '#f7c631' },
+        MISTAKE: { label: 'Error', symbol: '?', color: '#ffa459' },
+        MISS: { label: 'Omisión', symbol: '✕', color: '#ff7769' },
+        BLUNDER: { label: 'Error grave', symbol: '??', color: '#fa412d' },
     };
+
+    function getMoveTypeIconHtml(type, size = '0.95em') {
+        const style = `width:${size};height:${size};display:block;`;
+        switch (type) {
+            case 'BOOK':
+                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M4 6.5C7.5 5.5 10 6 11 6.5v11C10 17 7.5 16.5 4 17.5c-.6.2-1-.2-1-.8V7.3c0-.6.4-1 1-.8z"/><path d="M20 6.5C16.5 5.5 14 6 13 6.5v11C14 17 16.5 16.5 20 17.5c.6.2 1-.2 1-.8V7.3c0-.6-.4-1-1-.8z"/></svg>`;
+            case 'BEST':
+                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`;
+            case 'EXCELLENT':
+                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>`;
+            case 'GOOD':
+                return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" style="${style}"><polyline points="20 6 9 17 4 12"/></svg>`;
+            case 'MISS':
+                return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" style="${style}"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+            case 'WHITE_CROWN':
+                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M5 16L3 5l5.5 6.5L12 2l2.5 10L21 5l-2 11z" stroke="#FFD700" stroke-width="2" fill="none"/></svg>`;
+            case 'BLACK_CROWN':
+                return `<svg viewBox="0 0 24 24" fill="currentColor" style="${style}"><path d="M5 16L3 5l5.5 6.5L12 2l2.5 10L21 5l-2 11z" stroke="#000" stroke-width="2" fill="none"/><line x1="8" y1="8" x2="16" y2="16" stroke="#ff4444" stroke-width="2.5"/><line x1="16" y1="8" x2="8" y2="16" stroke="#ff4444" stroke-width="2.5"/></svg>`;
+            default:
+                return MOVE_TYPES[type]?.symbol || '';
+        }
+    }
+
+    function createMoveTypeBadge(type, size = '26px') {
+        const def = MOVE_TYPES[type];
+        if (!def) return null;
+        const badge = document.createElement('span');
+        badge.className = 'custom-move-badge';
+        const badgeSize = parseInt(size) || 26;
+        const iconSize = Math.round(badgeSize * 0.9); // 90% del tamaño del badge
+        Object.assign(badge.style, {
+            width: size,
+            height: size,
+            fontWeight: 900,
+            borderRadius: '50%',
+            backgroundColor: def.color,
+            color: '#ffffff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: '1',
+            flexShrink: '0',
+            boxSizing: 'border-box',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            padding: '0.5px' // Margen interno mínimo
+        });
+        // Para los badges, usar iconos al 70% del tamaño del badge
+        badge.innerHTML = getMoveTypeIconHtml(type, `${iconSize}px`);
+        return badge;
+    }
+
     const TYPE_ORDER = Object.keys(MOVE_TYPES);
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const state = { path: '', data: null, statCycles: new Map() };
@@ -1163,22 +1538,41 @@
             .advice-summary.local-analysis-summary .advice-summary__side { background: transparent; min-width: 0; padding: .55em .8em .75em; }
             .advice-summary.local-analysis-summary .advice-summary__side + .advice-summary__side { border-top: 1px solid rgba(255, 255, 255, .08); }
             .local-analysis-player { font-weight: bold; margin-bottom: .5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 1.4em; }
-            .local-analysis-count { cursor: pointer; display: flex; font-size: 1.25em; justify-content: space-between; line-height: 1.45; user-select: none; }
+            .local-analysis-count { align-items: center; cursor: pointer; display: flex; font-size: 1.15em; gap: 8px; justify-content: space-between; line-height: 1.45; padding: 2px 0; user-select: none; margin: 4px 0; }
             .local-analysis-count:hover { opacity: .8; }
-            .local-analysis-count span:last-child { font-weight: bold; }
-            glyph.custom-move-glyph { align-items: center; background: none !important; box-shadow: none !important; display: inline-flex !important; font-family: 'Noto Sans', sans-serif; font-size: .9em !important; font-weight: bold; justify-content: center; margin-left: 4px !important; vertical-align: middle !important; }
+            .local-analysis-count .stat-label { color: #ffffff; font-weight: 500; min-width: 120px; }
+            .local-analysis-count .stat-count { font-weight: bold; font-size: 1.1em; }
+            .custom-move-badge { border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-sizing: border-box; }
+            glyph.custom-move-glyph { align-items: center; background: none !important; box-shadow: none !important; display: inline-flex !important; justify-content: center; margin-left: 4px !important; vertical-align: middle !important; box-sizing: border-box;}
+            glyph.custom-move-glyph[data-glyph-type="book"], glyph.custom-move-glyph[data-glyph-type="best"], glyph.custom-move-glyph[data-glyph-type="excellent"], glyph.custom-move-glyph[data-glyph-type="good"], glyph.custom-move-glyph[data-glyph-type="miss"] {width: 22px; height: 22px;}
+            glyph.custom-move-glyph[data-glyph-type="book"] svg, glyph.custom-move-glyph[data-glyph-type="best"] svg, glyph.custom-move-glyph[data-glyph-type="excellent"] svg, glyph.custom-move-glyph[data-glyph-type="good"] svg, glyph.custom-move-glyph[data-glyph-type="miss"] svg {width: 100%; height: 100%; fill: currentColor; display: block;}
+            glyph.custom-move-glyph[data-glyph-type="brilliant"], glyph.custom-move-glyph[data-glyph-type="great"], glyph.custom-move-glyph[data-glyph-type="inaccuracy"], glyph.custom-move-glyph[data-glyph-type="mistake"], glyph.custom-move-glyph[data-glyph-type="miss"], glyph.custom-move-glyph[data-glyph-type="blunder"] {font-family: 'Noto Sans', sans-serif; font-size: 18px !important; font-weight: bold; line-height: 1;}
             move[data-local-analysis-type].active san, u8[data-local-analysis-type].active kw, move[data-local-analysis-type].active .custom-move-glyph, u8[data-local-analysis-type].active .custom-move-glyph { color: white !important; fill: white !important; }
-            move[data-local-analysis-type="brilliant"].active, u8[data-local-analysis-type="brilliant"].active { background-color: #1baca6 !important; }
-            move[data-local-analysis-type="great"].active, u8[data-local-analysis-type="great"].active { background-color: #4f9ed8 !important; }
-            move[data-local-analysis-type="book"].active, u8[data-local-analysis-type="book"].active { background-color: #a88865 !important; }
+            move[data-local-analysis-type="brilliant"].active, u8[data-local-analysis-type="brilliant"].active { background-color: #26c2a3 !important; }
+            move[data-local-analysis-type="great"].active, u8[data-local-analysis-type="great"].active { background-color: #749bbf !important; }
+            move[data-local-analysis-type="book"].active, u8[data-local-analysis-type="book"].active { background-color: #d5a47d !important; }
             move[data-local-analysis-type="best"].active, u8[data-local-analysis-type="best"].active { background-color: #81b64c !important; }
-            move[data-local-analysis-type="excellent"].active, u8[data-local-analysis-type="excellent"].active { background-color: #96bc4b !important; }
-            move[data-local-analysis-type="good"].active, u8[data-local-analysis-type="good"].active { background-color: #b2d35e !important; }
-            move[data-local-analysis-type="inaccuracy"].active, u8[data-local-analysis-type="inaccuracy"].active { background-color: #e5b74b !important; }
-            move[data-local-analysis-type="mistake"].active, u8[data-local-analysis-type="mistake"].active { background-color: #e58b45 !important; }
-            move[data-local-analysis-type="miss"].active, u8[data-local-analysis-type="miss"].active { background-color: #e66b5b !important; }
-            move[data-local-analysis-type="blunder"].active, u8[data-local-analysis-type="blunder"].active { background-color: #d8504f !important; }
+            move[data-local-analysis-type="excellent"].active, u8[data-local-analysis-type="excellent"].active { background-color: #84a956 !important; }
+            move[data-local-analysis-type="good"].active, u8[data-local-analysis-type="good"].active { background-color: #95b776 !important; }
+            move[data-local-analysis-type="inaccuracy"].active, u8[data-local-analysis-type="inaccuracy"].active { background-color: #f7c631 !important; }
+            move[data-local-analysis-type="mistake"].active, u8[data-local-analysis-type="mistake"].active { background-color: #ffa459 !important; }
+            move[data-local-analysis-type="miss"].active, u8[data-local-analysis-type="miss"].active { background-color: #ff7769 !important; }
+            move[data-local-analysis-type="blunder"].active, u8[data-local-analysis-type="blunder"].active { background-color: #fa412d !important; }
             move[data-local-analysis-type]:not(.active) san, u8[data-local-analysis-type]:not(.active) kw, move[data-local-analysis-type]:not(.active) .custom-move-glyph, u8[data-local-analysis-type]:not(.active) .custom-move-glyph { color: var(--local-move-color) !important; fill: var(--local-move-color) !important; }
+            /* Ocultar glifos nativos del servidor de Lichess para evitar duplicación y superposición */
+            glyph:not(.custom-move-glyph),
+            move glyph:not(.custom-move-glyph),
+            u8 glyph:not(.custom-move-glyph),
+            .analyse__moves glyph:not(.custom-move-glyph),
+            .study__moves glyph:not(.custom-move-glyph),
+            .tview2 glyph:not(.custom-move-glyph),
+            rmoves glyph:not(.custom-move-glyph),
+            cg-board glyph,
+            .cg-wrap glyph:not(.local-board-glyph) {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
         `;
         (document.head || document.documentElement).appendChild(style);
     }
@@ -1312,30 +1706,33 @@
         });
     }
 
-    const BOOK_SVG = '<svg style="width: 0.85em; height: 0.85em;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path d="M96 0C43 0 0 43 0 96V416c0 53 43 96 96 96H384h32c17.7 0 32-14.3 32-32s-14.3-32-32-32V384c17.7 0 32-14.3 32-32V32c0-17.7-14.3-32-32-32H384 96zm0 384H352v64H96c-17.7 0-32-14.3-32-32s14.3-32 32-32zm32-240c0-8.8 7.2-16 16-16H336c8.8 0 16 7.2 16 16s-7.2 16-16 16H144c-8.8 0-16-7.2-16-16zm16 48H336c8.8 0 16 7.2 16 16s-7.2 16-16 16H144c-8.8 0-16-7.2-16-16s7.2-16 16-16z"/></svg>';
+    const BOOK_SVG = getMoveTypeIconHtml('BOOK');
 
     function setMoveGlyph(node, type) {
         node.querySelectorAll('.custom-move-glyph').forEach((glyph) => glyph.remove());
-        node.querySelectorAll('.local-analysis-native-hidden').forEach((glyph) => {
-            glyph.style.display = '';
-            glyph.classList.remove('local-analysis-native-hidden');
-        });
-        node.removeAttribute('data-local-analysis-type');
-        node.style.removeProperty('--local-move-color');
-        if (!type || !MOVE_TYPES[type]) return;
-        const definition = MOVE_TYPES[type];
         node.querySelectorAll('glyph:not(.custom-move-glyph)').forEach((glyph) => {
             glyph.style.display = 'none';
             glyph.classList.add('local-analysis-native-hidden');
         });
+        const currentCustom = node.querySelector('.custom-move-glyph');
+        if (!type || !MOVE_TYPES[type]) {
+            if (currentCustom) currentCustom.remove();
+            node.removeAttribute('data-local-analysis-type');
+            node.style.removeProperty('--local-move-color');
+            return;
+        }
+        if (currentCustom && currentCustom.dataset.glyphType === type.toLowerCase()) {
+            return;
+        }
+        if (currentCustom) currentCustom.remove();
+        const definition = MOVE_TYPES[type];
         const glyph = document.createElement('glyph');
         glyph.className = 'custom-move-glyph';
         glyph.dataset.glyphType = type.toLowerCase();
         glyph.dataset.color = definition.color;
         glyph.title = definition.label;
         node.style.setProperty('--local-move-color', definition.color);
-        if (type === 'BOOK') glyph.innerHTML = BOOK_SVG;
-        else glyph.textContent = definition.symbol;
+        glyph.innerHTML = getMoveTypeIconHtml(type);
         const moveText = node.querySelector('san, kw') || node;
         moveText.insertAdjacentElement('afterend', glyph);
         node.dataset.localAnalysisType = type.toLowerCase();
@@ -1433,14 +1830,39 @@
             TYPE_ORDER.forEach((type) => {
                 const count = data.moves.reduce((total, move, index) => total + (index % 2 === sideIndex && move.type === type ? 1 : 0), 0);
                 const row = document.createElement('div');
-                row.className = 'custom-move-stat advice-summary__error local-analysis-count';
-                row.style.color = MOVE_TYPES[type].color;
+                Object.assign(row.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    margin: '4px 0',
+                    cursor: 'pointer',
+                    padding: '2px 0'
+                });
+                row.className = 'local-analysis-count';
                 row.title = 'Haz clic para ir a esta jugada';
+
+                const labelContainer = document.createElement('div');
+                Object.assign(labelContainer.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flex: 1
+                });
+
                 const label = document.createElement('span');
+                label.className = 'stat-label';
                 label.textContent = MOVE_TYPES[type].label;
+                label.style.minWidth = '120px';
+
                 const value = document.createElement('span');
+                value.className = 'stat-count';
+                value.style.color = MOVE_TYPES[type].color;
                 value.textContent = String(count);
-                row.append(label, value);
+
+                labelContainer.append(label, value);
+
+                const badge = createMoveTypeBadge(type, '20px');
+                row.append(labelContainer, badge);
                 row.addEventListener('click', () => activateCategory(sideIndex, type));
                 countsCol.appendChild(row);
             });
@@ -1533,39 +1955,71 @@
         return `translate(${x * 100}%, ${y * 100}%)`;
     }
 
+    function isCheckmate(san) {
+        return san && (san.includes('#') || san.includes('++'));
+    }
+
     function syncBoardGlyph() {
         const board = document.querySelector('cg-board');
         if (!board || !state.data) return;
         board.querySelectorAll('.local-board-glyph').forEach((glyph) => glyph.remove());
-        board.querySelectorAll('glyph').forEach((glyph) => { glyph.style.display = ''; });
+        board.querySelectorAll('glyph:not(.local-board-glyph)').forEach((glyph) => {
+            glyph.style.display = 'none';
+            glyph.classList.add('local-analysis-native-hidden');
+        });
         const activeEntry = getMainlineMoveNodes().find((item) => item.node.classList.contains('active'));
         const activeIndex = activeEntry?.index;
         const move = state.data.moves[activeIndex];
-        if (!move || !MOVE_TYPES[move.type]) return;
-        const destination = getDestSquareFromSan(move.san, activeIndex % 2 === 0 ? 'white' : 'black');
-        if (!destination) return;
-        board.querySelectorAll('glyph').forEach((glyph) => { glyph.style.display = 'none'; });
+        if (!move) return;
+
+        const moveColor = activeIndex % 2 === 0 ? 'white' : 'black';
         const isFlipped = document.querySelector('.cg-wrap')?.classList.contains('orientation-black');
-        const marker = document.createElement('div');
-        marker.className = 'local-board-glyph';
-        Object.assign(marker.style, {
-            left: '0', position: 'absolute', top: '0', transform: squareToTransform(destination, isFlipped), width: '12.5%', height: '12.5%',
-            zIndex: '10', pointerEvents: 'none',
-        });
-        const bubble = document.createElement('div');
-        Object.assign(bubble.style, {
-            alignItems: 'center', backgroundColor: MOVE_TYPES[move.type].color, borderRadius: '50%',
-            color: 'white', display: 'flex', fontFamily: '"Noto Sans", sans-serif', fontSize: 'clamp(11px, 2.2vw, 29px)', fontWeight: 'bold',
-            height: '40%', justifyContent: 'center', position: 'absolute', right: '-11%', top: '-11%', width: '40%', zIndex: '11',
-        });
-        if (move.type === 'BOOK') {
-            bubble.innerHTML = BOOK_SVG;
-            bubble.querySelector('svg')?.setAttribute('style', 'fill:white;height:68%;width:68%;');
-        } else {
-            bubble.textContent = MOVE_TYPES[move.type].symbol;
+
+        if (move && isCheckmate(move.san)) {
+            const winnerColor = moveColor;
+            const whiteKingSquare = isFlipped ? 'e8' : 'e1';
+            const blackKingSquare = isFlipped ? 'e1' : 'e8';
+
+            const winnerSquare = winnerColor === 'white' ? whiteKingSquare : blackKingSquare;
+            const loserSquare = winnerColor === 'white' ? blackKingSquare : whiteKingSquare;
+
+            [winnerSquare, loserSquare].forEach((square, idx) => {
+                const marker = document.createElement('div');
+                marker.className = 'local-board-glyph';
+                Object.assign(marker.style, {
+                    left: '0', position: 'absolute', top: '0', transform: squareToTransform(square, isFlipped), width: '12.5%', height: '12.5%',
+                    zIndex: '10', pointerEvents: 'none',
+                });
+                const bubble = document.createElement('div');
+                Object.assign(bubble.style, {
+                    alignItems: 'center', backgroundColor: 'transparent', borderRadius: '50%',
+                    color: 'white', display: 'flex', justifyContent: 'center',
+                    position: 'absolute', right: '0%', top: '0%', width: '100%', height: '100%', zIndex: '11',
+                });
+                const iconType = idx === 0 ? 'WHITE_CROWN' : 'BLACK_CROWN';
+                bubble.innerHTML = getMoveTypeIconHtml(iconType, '100%');
+                marker.appendChild(bubble);
+                board.appendChild(marker);
+            });
+        } else if (move && MOVE_TYPES[move.type]) {
+            const destination = getDestSquareFromSan(move.san, moveColor);
+            if (!destination) return;
+            const marker = document.createElement('div');
+            marker.className = 'local-board-glyph';
+            Object.assign(marker.style, {
+                left: '0', position: 'absolute', top: '0', transform: squareToTransform(destination, isFlipped), width: '12.5%', height: '12.5%',
+                zIndex: '10', pointerEvents: 'none',
+            });
+            const bubble = document.createElement('div');
+            Object.assign(bubble.style, {
+                alignItems: 'center', backgroundColor: MOVE_TYPES[move.type].color, borderRadius: '50%',
+                color: 'white', display: 'flex', fontFamily: '"Noto Sans", sans-serif', fontSize: 'clamp(11px, 2.2vw, 29px)', fontWeight: 'bold',
+                height: '40%', justifyContent: 'center', position: 'absolute', right: '-11%', top: '-11%', width: '40%', zIndex: '11',
+            });
+            bubble.innerHTML = getMoveTypeIconHtml(move.type);
+            marker.appendChild(bubble);
+            board.appendChild(marker);
         }
-        marker.appendChild(bubble);
-        board.appendChild(marker);
     }
 
     function updateActivePoint() {
@@ -1578,6 +2032,7 @@
 
     let moveListObserver = null;
     let observedMoveList = null;
+    let moveListSyncTimer = null;
 
     function setupBoardSync() {
         const moveList = document.querySelector('.analyse__moves, .study__moves, .gamebook, rmoves, l4x, .tview2');
@@ -1585,11 +2040,40 @@
         moveListObserver?.disconnect();
         observedMoveList = moveList;
         moveListObserver = new MutationObserver((mutations) => {
-            if (mutations.some((mutation) => mutation.type === 'attributes' && /^(MOVE|U8)$/.test(mutation.target.tagName))) {
-                setTimeout(updateActivePoint, 50);
+            const hasNativeGlyph = mutations.some((mutation) => {
+                if (mutation.type !== 'childList') return false;
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType !== 1) continue;
+                    if (node.matches('glyph:not(.custom-move-glyph)')) return true;
+                    if (node.querySelector('glyph:not(.custom-move-glyph)')) return true;
+                }
+                return false;
+            });
+            if (hasNativeGlyph) {
+                clearTimeout(moveListSyncTimer);
+                moveListSyncTimer = setTimeout(() => syncWithDom(), 0);
+                return;
+            }
+            const hasNewNodes = mutations.some((mutation) => {
+                if (mutation.type === 'childList') {
+                    return [...mutation.addedNodes].some((node) => {
+                        if (node.nodeType !== 1) return false;
+                        return node.matches('move, u8, node')
+                            || Boolean(node.querySelector('move, u8'));
+                    });
+                }
+                return false;
+            });
+            if (hasNewNodes) {
+                clearTimeout(moveListSyncTimer);
+                moveListSyncTimer = setTimeout(() => syncWithDom(), 50);
+                return;
+            }
+            if (mutations.some((mutation) => mutation.type === 'attributes' && /^(MOVE|U8|NODE)$/i.test(mutation.target.tagName))) {
+                setTimeout(updateActivePoint, 40);
             }
         });
-        moveListObserver.observe(moveList, { attributes: true, attributeFilter: ['class'], subtree: true });
+        moveListObserver.observe(moveList, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
     }
 
     function syncWithDom(attempt = 0) {
@@ -1599,17 +2083,25 @@
             if (attempt < 12) setTimeout(() => syncWithDom(attempt + 1), 500);
             return;
         }
-        nodes.forEach((node) => setMoveGlyph(node, null));
-        getMainlineMoveNodes().forEach(({ node, index }) => {
-            const move = state.data.moves[index];
-            if (move && !Number.isFinite(move.evaluation)) {
-                const domEvaluation = readDomEvaluation(node);
-                if (Number.isFinite(domEvaluation)) {
-                    move.evaluation = domEvaluation;
-                    move.rawEvaluation = node.querySelector('eval, e')?.textContent.trim() || String(domEvaluation);
+        const mainlineMoves = getMainlineMoveNodes();
+        const mainlineMap = new Map();
+        mainlineMoves.forEach(({ node, index }) => mainlineMap.set(node, index));
+
+        nodes.forEach((node) => {
+            const index = mainlineMap.get(node);
+            if (index !== undefined) {
+                const move = state.data.moves[index];
+                if (move && !Number.isFinite(move.evaluation)) {
+                    const domEvaluation = readDomEvaluation(node);
+                    if (Number.isFinite(domEvaluation)) {
+                        move.evaluation = domEvaluation;
+                        move.rawEvaluation = node.querySelector('eval, e')?.textContent.trim() || String(domEvaluation);
+                    }
                 }
+                setMoveGlyph(node, move?.type);
+            } else {
+                setMoveGlyph(node, null);
             }
-            setMoveGlyph(node, move?.type);
         });
         hideVisibleMetadata();
         if (!renderPanel(state.data) && attempt < 12) setTimeout(() => syncWithDom(attempt + 1), 500);
@@ -1618,7 +2110,7 @@
     }
 
     let actionsPerformed = false;
-    function performInitialActions(attempt = 0) {
+    function performInitialActions(onDone) {
         const closeButton = document.querySelector('button.close-button[aria-label="Cerrar"]');
         if (closeButton) {
             closeButton.click();
@@ -1628,10 +2120,16 @@
         if (serverEvalTab) {
             if (!serverEvalTab.classList.contains('active')) {
                 serverEvalTab.click();
+                actionsPerformed = true;
+                setTimeout(() => {
+                    if (onDone) onDone();
+                }, 150);
+                return;
             }
             actionsPerformed = true;
-        } else if (attempt < 15) {
-            setTimeout(() => performInitialActions(attempt + 1), 500);
+            if (onDone) onDone();
+        } else {
+            if (onDone) onDone();
         }
     }
 
@@ -1647,9 +2145,10 @@
             if (!state.data.moves.some((move) => move.type || Number.isFinite(move.evaluation))) {
                 console.warn('[Análisis local] El PGN no contiene [%eval] ni [#TIPO#].');
             }
-            syncWithDom();
             actionsPerformed = false;
-            performInitialActions();
+            performInitialActions(() => {
+                syncWithDom();
+            });
         } catch (error) {
             console.warn('[Análisis local] No se pudo cargar el PGN del estudio.', error);
         }

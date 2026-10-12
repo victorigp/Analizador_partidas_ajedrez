@@ -1,4 +1,5 @@
 import os
+import subprocess
 import chess
 import chess.pgn
 import chess.engine
@@ -40,7 +41,10 @@ def analyze_pgn(pgn_string: str) -> str:
     stockfish_path = os.getenv("STOCKFISH_PATH", default_path)
     
     try:
-        engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+        engine_kwargs = {}
+        if os.name == "nt" and hasattr(subprocess, "CREATE_NO_WINDOW"):
+            engine_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        engine = chess.engine.SimpleEngine.popen_uci(stockfish_path, **engine_kwargs)
         # Configurar parámetros desde .env o usar valores por defecto
         threads = int(os.getenv("STOCKFISH_THREADS", "1"))
         hash_memory = int(os.getenv("STOCKFISH_HASH", "512"))

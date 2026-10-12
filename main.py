@@ -1,12 +1,27 @@
 import sys
 import builtins
 import os
+import time
 import threading
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Habilitar secuencias ANSI en la consola de Windows
-os.system("")
+# Fijar directorio de trabajo al del script para rutas relativas
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+if sys.stdout is not None:
+    os.system("")
+
+class NullWriter:
+    def write(self, s): pass
+    def flush(self): pass
+    def isatty(self): return False
+    def reconfigure(self, *args, **kwargs): pass
+
+if sys.stdout is None:
+    sys.stdout = NullWriter()
+if sys.stderr is None:
+    sys.stderr = NullWriter()
 
 # Guardamos las funciones originales
 original_print = builtins.print
@@ -23,6 +38,7 @@ class StatusHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Private-Network', 'true')
         self.end_headers()
 
     def do_GET(self):
@@ -30,6 +46,7 @@ class StatusHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Private-Network', 'true')
             self.end_headers()
             self.wfile.write(json.dumps({"logs": web_logs}).encode('utf-8'))
         else:
@@ -47,6 +64,7 @@ class StatusHandler(BaseHTTPRequestHandler):
                 web_input_event.set()
                 self.send_response(200)
                 self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Private-Network', 'true')
                 self.end_headers()
             except Exception:
                 self.send_response(400)
@@ -54,6 +72,7 @@ class StatusHandler(BaseHTTPRequestHandler):
         elif self.path == '/exit':
             self.send_response(200)
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Private-Network', 'true')
             self.end_headers()
             import os
             os._exit(0)
@@ -64,9 +83,37 @@ class StatusHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
+def obtener_puerto():
+    for arg in sys.argv[1:]:
+        if "?payload=" in arg or "&payload=" in arg:
+            try:
+                import urllib.parse
+                import base64
+                parsed = urllib.parse.urlparse(arg)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if 'payload' in qs:
+                    data = json.loads(base64.b64decode(qs['payload'][0]).decode('utf-8'))
+                    if 'SERVER_PORT' in data and data['SERVER_PORT']:
+                        return int(data['SERVER_PORT'])
+            except Exception:
+                pass
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("SERVER_PORT="):
+                        return int(line.split("=", 1)[1].strip())
+        except Exception:
+            pass
+    return 8765
+
+SERVER_PORT = obtener_puerto()
+
 def start_server():
+    global SERVER_PORT
     try:
-        server = HTTPServer(('localhost', 8765), StatusHandler)
+        server = HTTPServer(('127.0.0.1', SERVER_PORT), StatusHandler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
     except Exception:
         pass
@@ -88,13 +135,19 @@ def custom_print(*args, **kwargs):
         # Opciones de menu en Verde
         elif "1. Utilizar otro modelo de IA" in text or "2. Salir" in text or "¿Qué deseas hacer?" in text:
             args = (f"\033[92m{text}\033[0m",) + args[1:]
-    original_print(*args, **kwargs)
+    try:
+        original_print(*args, **kwargs)
+    except Exception:
+        pass
 
 def custom_input(prompt=""):
     global is_web_mode, web_input_value
     if is_web_mode:
         web_logs.append(f"[WEB_INPUT_REQUIRED] {prompt}")
-        original_print(f"\033[93m[Web Mode] Esperando input interactivo desde la web: {prompt}\033[0m")
+        try:
+            original_print(f"\033[93m[Web Mode] Esperando input interactivo desde la web: {prompt}\033[0m")
+        except Exception:
+            pass
         web_input_event.clear()
         web_input_event.wait()
         val = web_input_value
@@ -106,7 +159,11 @@ def custom_input(prompt=""):
 builtins.print = custom_print
 builtins.input = custom_input
 
-sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 from extraer_pgn import extraer_pgn_chesscom
 
 def main():
@@ -117,20 +174,32 @@ def main():
 
     url = ""
     if len(sys.argv) > 1:
-        url = sys.argv[1]
+        # Buscar en todos los argumentos el que contenga 'chess.com/game' o 'ajedrez://'
+        for arg in sys.argv[1:]:
+            arg_clean = arg.strip('\'"\\ ')
+            if "chess.com/game" in arg_clean or "ajedrez://" in arg_clean:
+                url = arg_clean
+                break
+        if not url:
+            url = sys.argv[1].strip('\'"\\ ')
+
         # Limpiar el prefijo del protocolo si viene del navegador
         if url.startswith("ajedrez://"):
             url = url[len("ajedrez://"):]
-            # A veces los navegadores añaden una barra al final
-            if url.endswith("/"):
-                url = url[:-1]
-                
-            # A veces los navegadores al procesar un doble protocolo (ajedrez://https://)
-            # se comen los dos puntos y dejan https//. Lo arreglamos:
-            if url.startswith("https//"):
-                url = "https://" + url[7:]
-            elif url.startswith("http//"):
-                url = "http://" + url[6:]
+
+        # Limpiar barras y comillas agregadas por escapes de shell de Windows
+        url = url.strip('\'"\\ ')
+
+        # A veces los navegadores añaden una barra al final
+        if url.endswith("/"):
+            url = url[:-1]
+            
+        # A veces los navegadores al procesar un doble protocolo (ajedrez://https://)
+        # se comen los dos puntos y dejan https//. Lo arreglamos:
+        if url.startswith("https//"):
+            url = "https://" + url[7:]
+        elif url.startswith("http//"):
+            url = "http://" + url[6:]
     else:
         portapapeles = ""
         try:
@@ -311,4 +380,9 @@ def main():
     crear_estudio.crear_estudio_desde_txt()
     
 if __name__ == "__main__":
-    main()
+    import traceback
+    try:
+        main()
+    except Exception as e:
+        with open("crash.log", "w", encoding="utf-8") as f:
+            traceback.print_exc(file=f)
