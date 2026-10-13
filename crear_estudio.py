@@ -78,7 +78,7 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     extras_str = ", " + ", ".join(extras) if extras else ""
     
     nombre_estudio = f"{resultado_txt}, {precision_str}{elo_str}{extras_str}"
-    return nombre_estudio, color_target
+    return nombre_estudio, color_target, blancas, negras
 
 def _api_request(url, token, data=None, method=None):
     """Hace una peticion a la API de Lichess con autenticacion Bearer."""
@@ -127,7 +127,7 @@ def crear_estudio_desde_txt():
         print("[Error] No se ha encontrado LICHESS_TOKEN en .env")
         return
     
-    nombre_estudio, color_orientacion = extraer_datos_pgn(pgn_ia, target_player, contenido)
+    nombre_estudio, color_orientacion, blancas, negras = extraer_datos_pgn(pgn_ia, target_player, contenido)
     val_orientacion = "white" if color_orientacion == "Blancas" else "black"
     
     print(f"[Info] Nombre del estudio: {nombre_estudio}")
@@ -213,7 +213,7 @@ def crear_estudio_desde_txt():
     print("[Lichess] Importando PGN con analisis de IA...")
     try:
         _api_request(f'https://lichess.org/api/study/{study_id}/import-pgn', token, data={
-            'name': nombre_estudio,
+            'name': f"{blancas} - {negras}",
             'pgn': pgn_ia,
             'orientation': val_orientacion
         })
