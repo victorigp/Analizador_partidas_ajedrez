@@ -14,6 +14,13 @@ export function parseHeaders(pgn) {
             }
         }
     }
+
+    const accMatches = pgn.matchAll(/(WhiteEloAccuracy\w*|BlackEloAccuracy\w*):\s*([\d.]+)/g);
+    for (const match of accMatches) {
+        if (!headers[match[1]]) {
+            headers[match[1]] = match[2];
+        }
+    }
     return headers;
 }
 

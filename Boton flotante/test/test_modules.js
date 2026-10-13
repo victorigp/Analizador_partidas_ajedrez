@@ -37,6 +37,12 @@ assert.strictEqual(headers.Black, 'Player2');
 assert.strictEqual(headers.WhiteElo, '1800');
 assert.strictEqual(headers.WhiteEloAccuracy, '88.5');
 assert.strictEqual(headers.BlackEloAccuracy, '75.2');
+
+const commentPgn = `1. e4 e5 2. Nf3 Nc6 { WhiteEloAccuracy: 92.1, BlackEloAccuracy: 88.0, WhiteEloAccuracyApertura: 95.0 } 1-0`;
+const commentHeaders = parseHeaders(commentPgn);
+assert.strictEqual(commentHeaders.WhiteEloAccuracy, '92.1');
+assert.strictEqual(commentHeaders.BlackEloAccuracy, '88.0');
+assert.strictEqual(commentHeaders.WhiteEloAccuracyApertura, '95.0');
 console.log('✓ parseHeaders verificado correctamente.');
 
 // 3. Pruebas de parseEval
