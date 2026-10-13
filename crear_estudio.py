@@ -55,12 +55,21 @@ def extraer_datos_pgn(pgn_text, target_player, contenido_completo):
     precision_str = f"{precision_match.group(1)}%, " if precision_match else ""
     
     # 2. ELO
-    elo_est_match = re.search(rf'{target_player} ELO partida:\s*(\d+)', contenido_completo, re.IGNORECASE)
-    if elo_est_match:
-        elo_str = f"ELO: {elo_est_match.group(1)}"
+    player_name = blancas if is_white else negras
+    names_to_check = [target_player, player_name] if target_player else [player_name]
+    pattern_names = "(?:" + "|".join(re.escape(n) for n in names_to_check if n) + ")"
+    elo_regex = rf'(?:\*\*)?{pattern_names}(?:\*\*)?:?\s*ELO partida:\s*(\d+)'
+    
+    elo_est_match = re.search(elo_regex, pgn_text, re.IGNORECASE)
+    if not elo_est_match:
+        matches = re.findall(elo_regex, contenido_completo, re.IGNORECASE)
+        if matches:
+            elo_str = f"ELO: {matches[-1]}"
+        else:
+            elo_match = re.search(fr'\[{color_prefix}Elo "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}Elo "(.*?)"\]', contenido_completo)
+            elo_str = f"ELO: {elo_match.group(1)}" if elo_match and elo_match.group(1) != "?" else "ELO: ?"
     else:
-        elo_match = re.search(fr'\[{color_prefix}Elo "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}Elo "(.*?)"\]', contenido_completo)
-        elo_str = f"ELO: {elo_match.group(1)}" if elo_match and elo_match.group(1) != "?" else "ELO: ?"
+        elo_str = f"ELO: {elo_est_match.group(1)}"
         
     # 3. Brillantes y geniales
     brillants_match = re.search(fr'\[{color_prefix}Brilliant "(.*?)"\]', pgn_text) or re.search(fr'\[{color_prefix}Brilliant "(.*?)"\]', contenido_completo)

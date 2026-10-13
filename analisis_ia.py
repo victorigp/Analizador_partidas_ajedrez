@@ -223,6 +223,7 @@ Input Context:
     modelo_actual = modelo_usar
     
     intentos_ia = 0
+    intentos_totales = 0
     max_intentos = 3
 
     while True:
@@ -243,8 +244,9 @@ Input Context:
             texto_ia = re.sub(r'(?<!\])\n{2,}', '\n', texto_ia)
             partida_test = chess.pgn.read_game(io.StringIO(texto_ia))
             if partida_test is None or partida_test.errors or not list(partida_test.mainline_moves()) or partida_test.headers.get("Event", "?") == "?":
+                intentos_totales += 1
                 with open("Resultados.txt", "a", encoding="utf-8") as f:
-                    f.write(f"\n--- RESPUESTA DE LA IA (Intento {intentos_ia + 1}) [FALLIDO] ---\n")
+                    f.write(f"\n--- RESPUESTA DE LA IA (Intento {intentos_totales}) [FALLIDO] ---\n")
                     f.write(texto_ia_crudo)
                     f.write("\n--------------------------------------------------\n")
 

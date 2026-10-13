@@ -140,6 +140,7 @@ export function startStatusPolling({
     if (btnGroupReset) btnGroupReset.style.display = 'none';
 
     let currentStepStartTime = Date.now();
+    const processStartTime = Date.now();
     let currentStepBaseText = 'Iniciando proceso local...';
     let currentMove = '';
 
@@ -167,6 +168,36 @@ export function startStatusPolling({
     const cleanup = () => {
         clearInterval(stepTimerInterval);
         clearInterval(pollInterval);
+    };
+
+    const formatTotalTime = (ms) => {
+        const totalSec = Math.floor(ms / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
+    };
+
+    const showFinalResult = (success, connectionError = false) => {
+        cleanup();
+        progSpinner.style.display = 'none';
+        progInteractive.style.display = 'flex';
+        const totalTimeStr = formatTotalTime(Date.now() - processStartTime);
+        const timeHtml = `<span style="color:#888; font-size:13px; font-weight:normal; margin-top:8px; display:inline-block;">Tiempo total: ${totalTimeStr}</span>`;
+
+        if (success) {
+            progInteractive.innerHTML = `<div style="color: #81b64c; font-weight: bold; text-align: center; font-size: 16px;">✓ ¡Análisis completado con éxito!<br><span style="color:#aaa; font-size:13px; font-weight:normal; margin-top:8px; display:inline-block;">El estudio se ha abierto en una nueva pestaña de Lichess.</span><br>${timeHtml}</div>`;
+        } else if (connectionError) {
+            progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">No se pudo conectar con el servidor local en el puerto ${serverPort || 'desconocido'}.<br><span style="color: #aaa; font-size: 13px; font-weight: normal; margin-top: 6px; display: inline-block;">${lastPollError ? 'Detalle: ' + lastPollError + '<br>' : ''}Verifica que el puerto coincida y que no esté bloqueado.</span><br>${timeHtml}<br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>`;
+            progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', onReturnToMainMenu);
+        } else {
+            const errorToShow = lastErrorLog || progSubtext.textContent || (currentStepBaseText ? `El proceso se detuvo inesperadamente durante: ${currentStepBaseText}` : '');
+            const errorDetail = errorToShow ? `<br><span style="color: #f59e0b; font-size: 13px; font-weight: normal; margin-top: 8px; display: inline-block; max-width: 90%; word-break: break-word;">${errorToShow}</span>` : '';
+            progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">Error en el proceso.${errorDetail}<br>${timeHtml}<br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>`;
+            progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', onReturnToMainMenu);
+        }
     };
 
     const pollInterval = setInterval(async () => {
@@ -380,17 +411,7 @@ export function startStatusPolling({
                 pollFailures = 0;
 
                 if (data.done) {
-                    cleanup();
-                    progSpinner.style.display = 'none';
-                    progInteractive.style.display = 'flex';
-                    if (isSuccess) {
-                        progInteractive.innerHTML = '<div style="color: #81b64c; font-weight: bold; text-align: center; font-size: 16px;">✓ ¡Análisis completado con éxito!<br><span style="color:#aaa; font-size:13px; font-weight:normal; margin-top:8px; display:inline-block;">El estudio se ha abierto en una nueva pestaña de Lichess.</span></div>';
-                    } else {
-                        const errorToShow = lastErrorLog || progSubtext.textContent || (currentStepBaseText ? `El proceso se detuvo inesperadamente durante: ${currentStepBaseText}` : '');
-                        const errorDetail = errorToShow ? `<br><span style="color: #f59e0b; font-size: 13px; font-weight: normal; margin-top: 8px; display: inline-block; max-width: 90%; word-break: break-word;">${errorToShow}</span>` : '';
-                        progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">Error en el proceso.${errorDetail}<br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>`;
-                        progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', onReturnToMainMenu);
-                    }
+                    showFinalResult(isSuccess);
                     return;
                 }
             } else {
@@ -409,20 +430,7 @@ export function startStatusPolling({
 
         const maxFailures = hasConnected ? 10 : 40;
         if (pollFailures > maxFailures) {
-            cleanup();
-            progSpinner.style.display = 'none';
-            progInteractive.style.display = 'flex';
-            if (isSuccess) {
-                progInteractive.innerHTML = '<div style="color: #81b64c; font-weight: bold; text-align: center; font-size: 16px;">✓ ¡Análisis completado con éxito!<br><span style="color:#aaa; font-size:13px; font-weight:normal; margin-top:8px; display:inline-block;">El estudio se ha abierto en una nueva pestaña de Lichess.</span></div>';
-            } else if (!hasConnected) {
-                progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">No se pudo conectar con el servidor local en el puerto ${serverPort || 'desconocido'}.<br><span style="color: #aaa; font-size: 13px; font-weight: normal; margin-top: 6px; display: inline-block;">${lastPollError ? 'Detalle: ' + lastPollError + '<br>' : ''}Verifica que el puerto coincida y que no esté bloqueado.</span><br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>`;
-                progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', onReturnToMainMenu);
-            } else {
-                const errorToShow = lastErrorLog || progSubtext.textContent || (currentStepBaseText ? `El proceso se detuvo inesperadamente durante: ${currentStepBaseText}` : '');
-                const errorDetail = errorToShow ? `<br><span style="color: #f59e0b; font-size: 13px; font-weight: normal; margin-top: 8px; display: inline-block; max-width: 90%; word-break: break-word;">${errorToShow}</span>` : '';
-                progInteractive.innerHTML = `<div style="color: #d8504f; font-weight: bold; text-align: center; line-height: 1.4;">Error en el proceso.${errorDetail}<br><button id="btn-volver-menu" style="background-color: #3b82f6; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; margin-top: 15px; cursor: pointer;">VOLVER AL MENÚ</button></div>`;
-                progInteractive.querySelector('#btn-volver-menu')?.addEventListener('click', onReturnToMainMenu);
-            }
+            showFinalResult(isSuccess, !hasConnected);
         }
     }, 500);
 
