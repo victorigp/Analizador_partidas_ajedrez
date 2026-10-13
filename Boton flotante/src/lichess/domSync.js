@@ -136,7 +136,42 @@ export function syncWithDom(attempt = 0) {
     hideVisibleMetadata();
     if (!renderPanel(state.data) && attempt < 12) setTimeout(() => syncWithDom(attempt + 1), 500);
     setupBoardSync();
+    setupTabSync();
     updateActivePoint();
+}
+
+export function setupTabSync() {
+    if (!runtime.tabClickListenerAttached && typeof document !== 'undefined') {
+        runtime.tabClickListenerAttached = true;
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('button.serverEval')) {
+                const checkAndRender = () => {
+                    const studyMessage = document.querySelector('.study__message');
+                    if (studyMessage && !studyMessage.querySelector('#local-analysis-chart-panel') && state.data) {
+                        renderPanel(state.data);
+                        updateActivePoint();
+                    }
+                };
+                setTimeout(checkAndRender, 50);
+                setTimeout(checkAndRender, 150);
+            }
+        });
+    }
+
+    const underboard = document.querySelector('.analyse__underboard, .study__underboard, .analyse__side, .study__side')
+        || document.querySelector('.study__message')?.parentElement
+        || document.querySelector('.analyse');
+    if (!underboard || underboard === runtime.observedUnderboard) return;
+    runtime.underboardObserver?.disconnect();
+    runtime.observedUnderboard = underboard;
+    runtime.underboardObserver = new MutationObserver(() => {
+        const studyMessage = document.querySelector('.study__message');
+        if (studyMessage && !studyMessage.querySelector('#local-analysis-chart-panel') && state.data) {
+            renderPanel(state.data);
+            updateActivePoint();
+        }
+    });
+    runtime.underboardObserver.observe(underboard, { childList: true, subtree: true });
 }
 
 export function performInitialActions(onDone) {

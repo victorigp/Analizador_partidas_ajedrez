@@ -10,5 +10,8 @@ export const runtime = {
     actionsPerformed: false,
     moveListObserver: null,
     observedMoveList: null,
-    moveListSyncTimer: null
+    moveListSyncTimer: null,
+    underboardObserver: null,
+    observedUnderboard: null,
+    tabClickListenerAttached: false
 };
