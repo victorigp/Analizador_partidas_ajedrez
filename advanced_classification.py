@@ -33,14 +33,14 @@ MIN_RATING = 400
 MAX_RATING = 3000
 BASE_WIN_K = 0.0030
 
+BEST_LOSS = 0.002
 EXCELLENT_LOSS = 0.02
 # Stockfish local a profundidad fija sobreestima levemente los deltas de EP.
-# El corte 0,04 reproduce las imprecisiones contrastadas con Chess.com.
-GOOD_LOSS = 0.04
-# La curva local se calibra con partidas de Chess.com de Elo bajo.
-INACCURACY_LOSS = 0.09
-MISTAKE_LOSS = 0.20
-CLASSIFICATION_BOUNDARIES = (EXCELLENT_LOSS, GOOD_LOSS, INACCURACY_LOSS, MISTAKE_LOSS)
+# El corte reproduce las imprecisiones y errores contrastados con Chess.com.
+GOOD_LOSS = 0.05
+INACCURACY_LOSS = 0.12
+MISTAKE_LOSS = 0.28
+CLASSIFICATION_BOUNDARIES = (BEST_LOSS, EXCELLENT_LOSS, GOOD_LOSS, INACCURACY_LOSS, MISTAKE_LOSS)
 
 # Se consideran transiciones de estado para Great y Miss.
 EQUAL_POINTS = 0.50
@@ -58,7 +58,7 @@ TACTICAL_MISTAKE_MATERIAL_LOSS = 2
 
 # Aproximación CAPS2 a partir de la pérdida media de Expected Points.
 CAPS2_SCALE = 103.1668
-CAPS2_DECAY = 0.04354
+CAPS2_DECAY = 0.054
 CAPS2_OFFSET = 3.1669
 
 # Los topes se dejan desactivados durante la emulación.
@@ -109,6 +109,34 @@ def _material_balance(board: chess.Board, color: bool) -> int:
         else:
             theirs += value
     return mine - theirs
+
+
+def is_genuine_sacrifice(board_before: chess.Board, pv, max_plies: int = 6) -> bool:
+    """
+    Verifica que la jugada implique un sacrificio real de material y no un simple intercambio.
+    """
+    if not pv or len(pv) < 2:
+        return False
+    mover = board_before.turn
+    start = _material_balance(board_before, mover)
+
+    board = board_before.copy(stack=False)
+    board.push(pv[0])
+    board.push(pv[1])
+    opp_balance = _material_balance(board, mover)
+
+    # El rival debe capturar al menos 2 peones o una pieza menor
+    if start - opp_balance < 2:
+        return False
+
+    # Si hay respuesta inmediata en la PV, comprobar que no sea un intercambio simple
+    if len(pv) >= 3:
+        board.push(pv[2])
+        mover_reply_balance = _material_balance(board, mover)
+        if start - mover_reply_balance < 2:
+            return False
+
+    return True
 
 
 def sacrificed_material(board_before: chess.Board, pv, max_plies: int = 8) -> int:
@@ -284,7 +312,7 @@ class AdvancedClassifier:
             is_white_turn,
             best_score_white_before,
         )
-        is_near_best = is_top_move
+        is_near_best = is_top_move or loss <= BEST_LOSS
 
         # MISS: se pierde una recuperación generada por un error rival.
         if is_miss:
@@ -331,21 +359,30 @@ class AdvancedClassifier:
         # BRILLIANT: sacrificio real, buena compensación y posición no decidida.
         if (
             played_pv
+            and len(played_pv) >= 2
             and played_pv[0] == move
             and not is_recapture
+            and not board_before.is_check()
             and pre_move_points < COMPLETELY_WON_POINTS
             and played_points >= BRILLIANT_MIN_PLAYED_POINTS
-            and sacrificed_material(board_before, played_pv) >= SACRIFICE_MIN_MATERIAL
+            and is_genuine_sacrifice(board_before, played_pv)
         ):
             return ANNOTATIONS["BRILLIANT"]
 
         # GREAT: única jugada buena o castigo de un error importante.
         unique_good_move = (
-            best_points >= EQUAL_POINTS
-            and second_points < EQUAL_POINTS
-            and best_points - second_points >= GREAT_UNIQUE_GOOD_GAP
+            not board_before.is_check()
+            and best_points >= 0.45
+            and (
+                best_points - second_points >= 0.07
+                or (second_points < EQUAL_POINTS and best_points - second_points >= GREAT_UNIQUE_GOOD_GAP)
+            )
         )
-        punishes_error = previous_loss >= MISTAKE_LOSS and best_points >= WINNING_POINTS
+        punishes_error = (
+            not board_before.is_check()
+            and previous_loss >= INACCURACY_LOSS
+            and best_points >= WINNING_POINTS
+        )
         if not is_recapture and (unique_good_move or punishes_error):
             return ANNOTATIONS["GREAT"]
 
