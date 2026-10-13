@@ -1,3 +1,17 @@
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/5b4ad33c-d6a2-469b-8f87-285e55296373">
+    <img height="350" alt="analisis_ia" src="https://github.com/user-attachments/assets/5b4ad33c-d6a2-469b-8f87-285e55296373" />
+  </a>
+  &emsp;
+  <a href="https://github.com/user-attachments/assets/8fb0e964-1381-4e99-b454-b7227cf5a7d5">
+    <img height="350" alt="7_partida1" src="https://github.com/user-attachments/assets/8fb0e964-1381-4e99-b454-b7227cf5a7d5" />
+  </a>
+  &emsp;
+  <a href="https://github.com/user-attachments/assets/c42b5b2f-2812-4793-af31-1011924be449">
+    <img height="350" alt="8_partida2" src="https://github.com/user-attachments/assets/c42b5b2f-2812-4793-af31-1011924be449" />
+  </a>
+</p>
+
 # Analizador de Partidas de Ajedrez
 
 Un script automatizado en Python que te permite extraer cualquier partida jugada en **Chess.com**, evaluarla localmente con **Stockfish**, y utilizar la **Inteligencia Artificial de Google Gemini** para generar comentarios detallados y explicaciones didácticas sobre los errores y momentos clave de la partida. Finalmente, agrupa todo en un **Estudio interactivo de Lichess**.
