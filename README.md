@@ -44,10 +44,8 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
    *(Opcional: Si no deseas instalar el script de Tampermonkey y deseas ejecutar manualmente el programa, el asistente por consola puede extraer automáticamente la sesión de Lichess de tu navegador habitual, pero necesitas instalar también `pip install playwright`)*.
 3. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión [**Tampermonkey**](https://www.tampermonkey.net/) (gestor de scripts de usuario para Chrome, Edge, Firefox, Brave, etc.) en tu navegador habitual.
-   - **Instalación rápida en 1 clic:** Abre este enlace directo para que Tampermonkey lo detecte e instale automáticamente:  
-     👉 [**Instalar / Actualizar Script en Tampermonkey**](https://raw.githubusercontent.com/victorigp/Analizador_partidas_ajedrez/master/Boton%20flotante/dist/chess_button_analyzer.js)  
-     *(O si prefieres manual: importa el archivo `Boton flotante/dist/chess_button_analyzer.js` en el panel de Tampermonkey y guarda con `Ctrl + S`)*.
-   - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto asocia el protocolo `ajedrez://` directamente a `pythonw.exe` para ejecutar el analizador y Stockfish de forma 100% silenciosa en segundo plano (sin parpadeos ni ventanas de consola en Windows).
+   - **Instalación del script:** importa el archivo `Boton flotante/dist/chess_button_analyzer.js` en el panel de Tampermonkey y guarda con `Ctrl + S`.
+   - **Instalación del protocolo:** Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto asocia el protocolo `ajedrez://` directamente a `pythonw.exe` para ejecutar el analizador y Stockfish de forma 100% silenciosa en segundo plano (sin parpadeos ni ventanas de consola en Windows).
    - **Avisos y permisos esperados la primera vez:**
      - *Permisos de red en Tampermonkey:* Al guardar o ejecutar el script, Tampermonkey solicitará confirmación para conectarse a `127.0.0.1` (`@connect`). Elige **"Permitir siempre"** para autorizar la lectura de los logs locales.
      - *Modo Desarrollador (Chrome, Brave, Edge):* En navegadores Chromium, Tampermonkey puede solicitar activar el interruptor de "Modo de desarrollador" en la gestión de extensiones (`chrome://extensions`) para autorizar scripts de usuario.
