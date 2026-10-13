@@ -39,7 +39,7 @@ export function renderPanel(data) {
         status = document.createElement('div');
         status.id = 'local-analysis-status';
     }
-    status.innerHTML = '<br>Esta partida ya está analizada localmente con STOCKFISH.<br>No hace falta solicitar el análisis del ordenador de más abajo.<br>';
+    status.innerHTML = '<br>Esta partida ya está analizada localmente con STOCKFISH.<br>No hace falta solicitar el análisis del ordenador indicado debajo.<br>';
 
     studyMessage.prepend(chartPanel);
     chartPanel.insertAdjacentElement('afterend', status);

@@ -18,7 +18,7 @@ export function injectStyles() {
         .local-analysis-point { cursor: pointer; stroke: var(--c-bg-zebra, #262421); stroke-width: 1.5; }
         .local-analysis-point.is-active { stroke: white; stroke-width: 3; }
         .local-analysis-axis { fill: currentColor; font-size: 11px; opacity: .68; }
-        #local-analysis-status { color: #fff; font-size: 1.05em; font-weight: bold; line-height: 1.4; margin: .15em 0 .65em; padding: .45em 0; text-align: center; }
+        #local-analysis-status { color: var(--c-font, inherit); font-size: 1.05em; font-weight: bold; line-height: 1.4; margin: .15em 0 .65em; padding: .45em 0; text-align: center; }
         #local-analysis-summary-panel { background: var(--c-bg-zebra, #262421); border-radius: 6px; margin-top: .5em; overflow: hidden; box-shadow: 0 2px 2px #00000014, 0 3px 1px -2px #0000002e, 0 1px 5px #0000001a; }
         .advice-summary.local-analysis-summary { background: var(--c-bg-box); display: grid; grid-template-columns: 1fr; margin: 0; padding: 0; }
         .advice-summary.local-analysis-summary .advice-summary__side { background: transparent; min-width: 0; padding: .55em .8em .75em; }
