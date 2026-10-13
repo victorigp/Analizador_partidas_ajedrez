@@ -350,9 +350,3 @@ def analyze_pgn(pgn_string: str) -> str:
     # Se exporta la partida resultante a una cadena PGN
     exporter = chess.pgn.StringExporter(headers=True, variations=True, comments=True)
     return game.accept(exporter)
-
-if __name__ == "__main__":
-    # Script de prueba
-    test_pgn = "[Event \"Play vs Bot\"][Site \"Chess.com\"][Date \"2026.09.02\"][White \"Ella-Drums-BOT\"][Black \"victorigp\"][Result \"0-1\"][WhiteElo \"925\"][BlackElo \"800\"][Termination \"victorigp ha ganado por jaque mate\"][ECO \"C60\"][EndDate \"2026.09.02\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 Nge7 4. c3 a6 5. a4 axb5 6. d3 bxa4 7. Rxa4 Rxa4 8. Qxa4 f6 9. d4 exd4 10. Nxd4 Nxd4 11. cxd4 Nc6 12. d5 Ne5 13. f4 Bb4+ 14. Ke2 Qe7 15. h4 Nc4 16. Qc2 Qc5 17. b3 Na3 18. Qxc5 Bxc5 19. Bxa3 Bxa3 20. Nxa3 c6 21. Nc2 O-O 22. Kf3 Re8 23. g4 cxd5 24. exd5 b5 25. f5 Bb7 26. Rh3 Bxd5+ 27. Kg3 Bxb3 28. Nd4 Re3+ 29. Kh2 Rxh3+ 30. Kxh3 Bc4 31. g5 Kf7 32. Nxb5 Bxb5 33. Kg2 d5 34. g6+ hxg6 35. fxg6+ Kxg6 36. Kf3 d4 37. Ke4 d3 38. h5+ Kxh5 39. Ke3 g5 40. Kd2 Kg4 41. Kc3 Kf3 42. Kd2 g4 43. Ke1 g3 44. Kd2 g2 45. Kc3 g1=Q 46. Kd2 Qe3+ 47. Kc3 d2+ 48. Kb4 Be8 49. Kc4 d1=Q 50. Kb4 Qdd4+ 51. Ka5 Qb3 52. Ka6 Qdb6# 0-1"
-    result = analyze_pgn(test_pgn)
-    print(result)
