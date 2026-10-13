@@ -1,0 +1,17 @@
+{
+  "name": "chess-button-analyzer",
+  "version": "1.3.0",
+  "type": "module",
+  "description": "Inicia el análisis desde Chess.com y muestra el análisis local en Lichess",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
+    "test": "node test/test_modules.js"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "rollup": "^4.17.0"
+  }
+}

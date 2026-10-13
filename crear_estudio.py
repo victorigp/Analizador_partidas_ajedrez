@@ -168,9 +168,13 @@ def crear_estudio_desde_txt():
             return
         print(f"[Ok] Estudio creado. ID: {study_id}")
     except urllib.error.HTTPError as e:
-        print(f"[Error] Fallo al crear estudio via API: {e.code}")
-        print("Detalle:", e.read().decode('utf-8', errors='ignore'))
-        print("[Aviso] Comprueba que tu LICHESS_TOKEN tiene el permiso 'study:write'.")
+        detalle = e.read().decode('utf-8', errors='ignore')
+        if e.code == 429:
+            print("[Error] Limite de Lichess alcanzado (HTTP 429). Lichess permite un maximo de 30 estudios por dia o requiere una pausa.")
+        else:
+            print(f"[Error] Fallo al crear estudio via API: {e.code}")
+            print("Detalle:", detalle)
+            print("[Aviso] Comprueba que tu LICHESS_TOKEN tiene el permiso 'study:write'.")
         return
     
     # =========================================

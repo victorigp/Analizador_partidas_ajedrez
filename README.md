@@ -24,11 +24,14 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 1. Clona o descarga este repositorio en tu ordenador.
 2. Abre una terminal en la carpeta del proyecto e instala las dependencias de Python:
    ```bash
-   pip install google-generativeai python-chess python-dotenv
+   pip install -r requirements.txt
    ```
+   *(Opcional: Si no deseas instalar el script de Tampermonkey y deseas ejecutar manualmente el programa, el asistente por consola puede extraer automáticamente la sesión de Lichess de tu navegador habitual, pero necesitas instalar también `pip install playwright`)*.
 3. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
    - Instala la extensión **Tampermonkey** en tu navegador habitual.
-   - Importa `Boton flotante/chess_button_analyzer.js` y haz clic en **Instalar** (o guarda con `Ctrl + S`).
+   - **Instalación rápida en 1 clic:** Abre este enlace directo para que Tampermonkey lo detecte e instale automáticamente:  
+     👉 [**Instalar / Actualizar Script en Tampermonkey**](https://raw.githubusercontent.com/victorigp/Analizador_partidas_ajedrez/master/Boton%20flotante/dist/chess_button_analyzer.js)  
+     *(O si prefieres manual: importa el archivo `Boton flotante/dist/chess_button_analyzer.js` en el panel de Tampermonkey y guarda con `Ctrl + S`)*.
    - Haz clic derecho en `Boton flotante/registrar_protocolo.bat` y selecciona **Ejecutar como administrador**. Esto asocia el protocolo `ajedrez://` directamente a `pythonw.exe` para ejecutar el analizador y Stockfish de forma 100% silenciosa en segundo plano (sin parpadeos ni ventanas de consola en Windows).
    - **Avisos y permisos esperados la primera vez:**
      - *Permisos de red en Tampermonkey:* Al guardar o ejecutar el script, Tampermonkey solicitará confirmación para conectarse a `127.0.0.1` (`@connect`). Elige **"Permitir siempre"** para autorizar la lectura de los logs locales.
@@ -65,7 +68,7 @@ OPENING_EXPLORER_ENABLED=true (Opcional, consulta el explorador de aperturas de 
 ## 🎮 Uso
 
 La forma más sencilla e integrada de utilizar el programa es a través del botón flotante en la propia web de Chess.com:
-1. Haz clic en el botón verde **"🤖 Analizar con IA"** en una partida.
+1. Haz clic en el botón verde **"🤖 Analizar con IA"** en una partida terminada.
 2. Pulsa en **INICIAR**. El análisis arrancará de forma completamente silenciosa en segundo plano (vía `pythonw.exe`) y podrás seguir el progreso en directo en el propio modal.
 3. Puedes cancelar el proceso en cualquier momento pulsando el aspa (**✖**) del modal, lo cual cerrará inmediatamente la tarea de Python y el servidor local.
 
@@ -93,20 +96,26 @@ Una vez introducida la URL, el script realiza el flujo completo:
 > # o directamente pasando la URL:
 > python main.py https://www.chess.com/game/computer/123456789
 > ```
+>
+> **Nota sobre la sesión de Lichess en modo manual:**  
+> Si no tienes configurada la cookie `LICHESS_COOKIE` en tu `.env`, la primera vez el asistente de consola te preguntará si deseas extraerla automáticamente de tu navegador local (requiere `pip install playwright`). Si no tienes Playwright instalado o prefieres no usarlo, puedes pulsar `N` y pegar la cookie manualmente.
 
 ## 📁 Estructura del Proyecto
 
 - `main.py`: Archivo principal que orquesta el flujo completo de ejecución.
+- `requirements.txt`: Lista de dependencias requeridas para Python.
 - `extraer_pgn.py`: Módulo para extraer el texto PGN desde Chess.com (vía endpoint HTTP y decodificación TCN).
-- `lichess_api.py`: Comunicación con la API REST de Lichess.
 - `analisis_ia.py`: Conexión con Google Gemini para generar los comentarios en español.
 - `local_analysis.py`: Ejecuta Stockfish localmente para evaluar cada posición y jugada.
 - `advanced_classification.py`: Algoritmo de clasificación de jugadas (Brillante, Gran jugada, Mejor, Error, Imprecisión, etc.) basado en Expected Points.
 - `crear_estudio.py`: Lógica para estructurar el estudio en Lichess con los comentarios.
 - `browser_utils.py`: Utilidad para inicializar el navegador Playwright correcto.
 - `login_manual.py`: Utilidad para extraer cookies de sesión de los navegadores locales.
-- `EJECUTAR.bat`: Script de Windows para lanzar el programa rápidamente.
-- `Boton flotante/`: Directorio con los scripts de Tampermonkey y el protocolo de apertura para integrar Chess.com y Lichess.
+- `EJECUTAR.bat`: Script de Windows para lanzar el programa rápidamente desde consola.
+- `Boton flotante/`: Directorio con el script para Tampermonkey y el protocolo de Windows:
+  - `dist/chess_button_analyzer.js`: Script compilado y listo para instalar en Tampermonkey.
+  - `registrar_protocolo.bat`: Script para asociar el protocolo `ajedrez://` en Windows.
+  - `src/`: Código fuente modular (solo para desarrolladores que deseen modificar el Userscript).
 
 ## 📜 Licencia
 

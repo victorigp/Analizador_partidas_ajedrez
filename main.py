@@ -31,6 +31,8 @@ web_logs = []
 is_web_mode = False
 web_input_event = threading.Event()
 web_input_value = ""
+process_done = False
+client_received_final_logs = threading.Event()
 
 class StatusHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -48,7 +50,9 @@ class StatusHandler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Access-Control-Allow-Private-Network', 'true')
             self.end_headers()
-            self.wfile.write(json.dumps({"logs": web_logs}).encode('utf-8'))
+            self.wfile.write(json.dumps({"logs": web_logs, "done": process_done}).encode('utf-8'))
+            if process_done:
+                client_received_final_logs.set()
         else:
             self.send_response(404)
             self.end_headers()
@@ -167,6 +171,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 from extraer_pgn import extraer_pgn_chesscom
 
 def main():
+    global is_web_mode
     print("=" * 50)
     print(" ANALIZADOR DE PARTIDAS")
     print("=" * 50)
@@ -303,7 +308,7 @@ def main():
     url = url.split("?")[0]
 
     from login_manual import verificar_y_configurar_sesion
-    is_web_mode = len(sys.argv) > 1
+    is_web_mode = is_web_mode or (len(sys.argv) > 1)
     if not verificar_y_configurar_sesion(is_web_mode=is_web_mode):
         print("\n[Parada] Por favor, configura tu sesión de Lichess antes de continuar.")
         return
@@ -390,4 +395,9 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         traceback.print_exc()
+        print(f"[Error] Excepción no controlada: {e}")
+    finally:
+        if is_web_mode:
+            process_done = True
+            client_received_final_logs.wait(timeout=1.0)
 
