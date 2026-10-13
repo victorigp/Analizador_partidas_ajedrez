@@ -32,6 +32,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
 - Una cuenta gratuita en **Lichess.org**.
 - Un Token API de Lichess con permiso `study:write` (creado en [preferencias de Lichess / Tokens API](https://lichess.org/account/oauth/token)).
 - Una clave API gratuita de **Google Gemini** (debes crearla desde Google AI Studio).
+- *(Opcional)* **Extensión Tampermonkey:** Gestor de scripts de usuario para el navegador (Chrome, Edge, Firefox, Brave), disponible en la [web oficial de Tampermonkey](https://www.tampermonkey.net/). Necesaria para integrar el botón interactivo en Chess.com y la interfaz local en Lichess.
 
 ## 🛠️ Instalación
 
@@ -42,7 +43,7 @@ Un script automatizado en Python que te permite extraer cualquier partida jugada
    ```
    *(Opcional: Si no deseas instalar el script de Tampermonkey y deseas ejecutar manualmente el programa, el asistente por consola puede extraer automáticamente la sesión de Lichess de tu navegador habitual, pero necesitas instalar también `pip install playwright`)*.
 3. **Instalación del script de Tampermonkey (Opcional pero recomendado):**
-   - Instala la extensión **Tampermonkey** en tu navegador habitual.
+   - Instala la extensión [**Tampermonkey**](https://www.tampermonkey.net/) (gestor de scripts de usuario para Chrome, Edge, Firefox, Brave, etc.) en tu navegador habitual.
    - **Instalación rápida en 1 clic:** Abre este enlace directo para que Tampermonkey lo detecte e instale automáticamente:  
      👉 [**Instalar / Actualizar Script en Tampermonkey**](https://raw.githubusercontent.com/victorigp/Analizador_partidas_ajedrez/master/Boton%20flotante/dist/chess_button_analyzer.js)  
      *(O si prefieres manual: importa el archivo `Boton flotante/dist/chess_button_analyzer.js` en el panel de Tampermonkey y guarda con `Ctrl + S`)*.
