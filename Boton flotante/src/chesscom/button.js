@@ -135,7 +135,7 @@ export function createFloatingButton() {
                     <label style="font-weight: bold; color: #fff;">Profundidad de Stockfish:</label>
                     <span id="modal-depth-val" style="color: #fff; font-weight: bold;">${p_depth}</span>
                 </div>
-                <input type="range" id="modal-depth" min="1" max="30" value="${p_depth}" style="width: 100%; margin-top: 10px; cursor: pointer;">
+                <input type="range" id="modal-depth" min="1" max="100" value="${p_depth}" style="width: 100%; margin-top: 10px; cursor: pointer;">
             </div>
             <div style="margin-bottom: 30px;">
                 <label style="font-weight: bold; color: #fff;">Modelo de IA:</label>

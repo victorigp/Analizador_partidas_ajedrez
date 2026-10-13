@@ -133,7 +133,7 @@ def crear_estudio_desde_txt():
     print(f"[Info] Nombre del estudio: {nombre_estudio}")
     print(f"[Info] Orientacion del tablero: {color_orientacion}")
     
-    # Inyectar las precisiones al final del comentario de la ultima jugada
+    # Inyectar las precisiones en la cabecera Termination para no alterar los comentarios
     pgn_ia = re.sub(r'\[Annotator\s+"[^"]*Accuracy[^"]*"\]\n?', '', pgn_ia)
     accuracies = re.findall(r'\[(\w*Accuracy\w*)\s+"([^"]+)"\]', contenido)
     seen = set()
@@ -145,17 +145,10 @@ def crear_estudio_desde_txt():
             
     if dedup_acc:
         acc_str = ", ".join(dedup_acc)
-        last_brace = pgn_ia.rfind('}')
-        trailing = pgn_ia[last_brace + 1:].strip() if last_brace != -1 else ""
-        if last_brace != -1 and (not trailing or re.fullmatch(r'(1-0|0-1|1/2-1/2|\*)', trailing)):
-            pgn_ia = pgn_ia[:last_brace].rstrip() + f"\n{acc_str} }}" + pgn_ia[last_brace + 1:]
+        if '[Termination' in pgn_ia:
+            pgn_ia = re.sub(r'(\[Termination\s+"[^"]*)"\]', r'\1, ' + acc_str + '"]', pgn_ia, count=1)
         else:
-            res_match = re.search(r'\s*(1-0|0-1|1/2-1/2|\*)\s*$', pgn_ia)
-            if res_match:
-                pos = res_match.start()
-                pgn_ia = pgn_ia[:pos] + f" {{ {acc_str} }} " + pgn_ia[pos:].strip()
-            else:
-                pgn_ia = pgn_ia + f" {{ {acc_str} }}"
+            pgn_ia = re.sub(r'(\[Result\s+"[^"]*"\])', r'\1\n[Termination "' + acc_str + '"]', pgn_ia, count=1)
     
     # ============================
     # PASO 1: Crear estudio via API

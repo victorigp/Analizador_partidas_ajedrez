@@ -61,6 +61,17 @@ export function hideVisibleMetadata() {
                 .replace(/\s*\[\w*Accuracy\w*\s+"[^"]+"\]/gi, '');
         });
     });
+
+    const moveList = document.querySelector('.analyse__moves, .study__moves, .gamebook, rmoves, l4x, .tview2, .analyse') || document.body;
+    if (moveList) {
+        const walker = document.createTreeWalker(moveList, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (node.nodeValue && node.nodeValue.includes('WhiteEloAccuracy:')) {
+                node.nodeValue = node.nodeValue.replace(/,?\s*WhiteEloAccuracy:[^•\n\r]*?(?=\s*(?:•|$))/i, '');
+            }
+        }
+    }
 }
 
 export function setMoveGlyph(node, type) {
