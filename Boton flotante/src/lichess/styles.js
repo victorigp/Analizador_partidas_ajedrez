@@ -26,7 +26,7 @@ export function injectStyles() {
         .local-analysis-player { font-weight: bold; margin-bottom: .5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 1.4em; }
         .local-analysis-count { align-items: center; cursor: pointer; display: flex; font-size: 1.15em; gap: 8px; justify-content: space-between; line-height: 1.45; padding: 2px 0; user-select: none; margin: 4px 0; }
         .local-analysis-count:hover { opacity: .8; }
-        .local-analysis-count .stat-label { color: #ffffff; font-weight: 500; min-width: 120px; }
+        .local-analysis-count .stat-label { color: var(--c-font, inherit); font-weight: 500; min-width: 120px; }
         .local-analysis-count .stat-count { font-weight: bold; font-size: 1.1em; }
         .custom-move-badge { border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-sizing: border-box; }
         move[data-local-analysis-type], u8[data-local-analysis-type] { align-items: center !important; }
