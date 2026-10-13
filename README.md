@@ -1,14 +1,14 @@
 <p align="center">
   <a href="https://github.com/user-attachments/assets/5b4ad33c-d6a2-469b-8f87-285e55296373">
-    <img height="350" alt="analisis_ia" src="https://github.com/user-attachments/assets/5b4ad33c-d6a2-469b-8f87-285e55296373" />
+    <img height="320" alt="analisis_ia" src="https://github.com/user-attachments/assets/5b4ad33c-d6a2-469b-8f87-285e55296373" />
   </a>
   &ensp;
   <a href="https://github.com/user-attachments/assets/8fb0e964-1381-4e99-b454-b7227cf5a7d5">
-    <img height="350" alt="7_partida1" src="https://github.com/user-attachments/assets/8fb0e964-1381-4e99-b454-b7227cf5a7d5" />
+    <img height="320" alt="7_partida1" src="https://github.com/user-attachments/assets/8fb0e964-1381-4e99-b454-b7227cf5a7d5" />
   </a>
   &ensp;
   <a href="https://github.com/user-attachments/assets/c42b5b2f-2812-4793-af31-1011924be449">
-    <img height="350" alt="8_partida2" src="https://github.com/user-attachments/assets/c42b5b2f-2812-4793-af31-1011924be449" />
+    <img height="320" alt="8_partida2" src="https://github.com/user-attachments/assets/c42b5b2f-2812-4793-af31-1011924be449" />
   </a>
 </p>
 
