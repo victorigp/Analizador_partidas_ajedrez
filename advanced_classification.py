@@ -36,16 +36,17 @@ BASE_WIN_K = 0.0030
 BEST_LOSS = 0.002
 EXCELLENT_LOSS = 0.02
 # Stockfish local a profundidad fija sobreestima levemente los deltas de EP.
-# El corte reproduce las imprecisiones y errores contrastados con Chess.com.
-GOOD_LOSS = 0.05
-INACCURACY_LOSS = 0.12
-MISTAKE_LOSS = 0.28
+# Los cortes reproducen las imprecisiones y errores contrastados con Chess.com a depth 18.
+GOOD_LOSS = 0.04
+INACCURACY_LOSS = 0.09
+MISTAKE_LOSS = 0.22
 CLASSIFICATION_BOUNDARIES = (BEST_LOSS, EXCELLENT_LOSS, GOOD_LOSS, INACCURACY_LOSS, MISTAKE_LOSS)
 
 # Se consideran transiciones de estado para Great y Miss.
 EQUAL_POINTS = 0.50
 WINNING_POINTS = 0.70
 GREAT_UNIQUE_GOOD_GAP = 0.05
+# El umbral para generar oportunidad de Miss se alinea con INACCURACY_LOSS.
 MISS_MIN_OPPONENT_LOSS = INACCURACY_LOSS
 MISS_MIN_RECOVERY_GAIN = 0.10
 MISS_WINDOW_TURNS = 2
@@ -111,32 +112,68 @@ def _material_balance(board: chess.Board, color: bool) -> int:
     return mine - theirs
 
 
-def is_genuine_sacrifice(board_before: chess.Board, pv, max_plies: int = 6) -> bool:
+def _is_piece_en_prise(board_before: chess.Board, move: chess.Move) -> bool:
+    """
+    Comprueba si tras la jugada, la pieza movida queda atacada por una pieza
+    enemiga de menor valor. La captura siempre es rentable para el atacante
+    cuando su pieza vale menos que la capturada, independientemente de defensores.
+    """
+    moved_piece = board_before.piece_at(move.from_square)
+    if moved_piece is None:
+        return False
+    moved_value = PIECE_VALUES.get(moved_piece.piece_type, 0)
+    if moved_value == 0:
+        return False
+
+    board_after = board_before.copy(stack=False)
+    board_after.push(move)
+    target_square = move.to_square
+    opponent = not board_before.turn
+
+    for attacker_sq in board_after.attackers(opponent, target_square):
+        attacker = board_after.piece_at(attacker_sq)
+        if attacker is not None:
+            if PIECE_VALUES.get(attacker.piece_type, 0) < moved_value:
+                return True
+    return False
+
+
+def is_genuine_sacrifice(board_before: chess.Board, move: chess.Move, pv, max_plies: int = 6) -> bool:
     """
     Verifica que la jugada implique un sacrificio real de material y no un simple intercambio.
+    Se reconocen dos patrones:
+    1. El rival captura la pieza movida en la PV y el sacrificante no recupera de inmediato.
+    2. La pieza queda en prise tras la jugada (sacrificio declinado en la PV).
     """
     if not pv or len(pv) < 2:
         return False
     mover = board_before.turn
     start = _material_balance(board_before, mover)
 
-    board = board_before.copy(stack=False)
-    board.push(pv[0])
-    board.push(pv[1])
-    opp_balance = _material_balance(board, mover)
+    # Patrón 1: el rival captura la pieza movida y no se recupera de inmediato.
+    # Se exige que la respuesta del rival sea una captura sobre la casilla destino
+    # de la jugada para descartar pérdidas de material no relacionadas.
+    opp_response = pv[1]
+    if opp_response.to_square == move.to_square:
+        board = board_before.copy(stack=False)
+        board.push(pv[0])
+        board.push(pv[1])
+        opp_balance = _material_balance(board, mover)
+        if start - opp_balance >= SACRIFICE_MIN_MATERIAL:
+            if len(pv) >= 3:
+                board.push(pv[2])
+                mover_reply_balance = _material_balance(board, mover)
+                if start - mover_reply_balance < SACRIFICE_MIN_MATERIAL:
+                    return False
+            return True
 
-    # El rival debe capturar al menos 2 peones o una pieza menor
-    if start - opp_balance < 2:
-        return False
+    # Patrón 2: pieza en prise (sacrificio ofrecido pero declinado por el rival)
+    if _is_piece_en_prise(board_before, move):
+        moved_piece = board_before.piece_at(move.from_square)
+        if moved_piece and PIECE_VALUES.get(moved_piece.piece_type, 0) >= SACRIFICE_MIN_MATERIAL:
+            return True
 
-    # Si hay respuesta inmediata en la PV, comprobar que no sea un intercambio simple
-    if len(pv) >= 3:
-        board.push(pv[2])
-        mover_reply_balance = _material_balance(board, mover)
-        if start - mover_reply_balance < 2:
-            return False
-
-    return True
+    return False
 
 
 def sacrificed_material(board_before: chess.Board, pv, max_plies: int = 8) -> int:
@@ -337,6 +374,15 @@ class AdvancedClassifier:
                 return ANNOTATIONS["GOOD"]
             return ANNOTATIONS["EXCELLENT"]
 
+        # En posiciones de mate forzado, jugadas ganadoras que no son la más
+        # rápida se consideran Excelente (no Mejor) para alinear con Chess.com.
+        if (
+            not is_top_move
+            and played_score_white.is_mate()
+            and best_score_white_before.is_mate()
+        ):
+            return ANNOTATIONS["EXCELLENT"]
+
         if second_best_score_white_before is None or board_before.legal_moves.count() == 1:
             return ANNOTATIONS["BEST"]
 
@@ -365,7 +411,7 @@ class AdvancedClassifier:
             and not board_before.is_check()
             and pre_move_points < COMPLETELY_WON_POINTS
             and played_points >= BRILLIANT_MIN_PLAYED_POINTS
-            and is_genuine_sacrifice(board_before, played_pv)
+            and is_genuine_sacrifice(board_before, move, played_pv)
         ):
             return ANNOTATIONS["BRILLIANT"]
 
