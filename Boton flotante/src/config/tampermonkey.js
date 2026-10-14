@@ -9,6 +9,7 @@ export const tampermonkeyHeader = `// ==UserScript==
 // @match        *://*.chess.com/games/*
 // @match        *://*.chess.com/analysis/*
 // @match        *://*.chess.com/live/*
+// @match        *://*.chess.com/play/*
 // @match        https://lichess.org/study/*
 // @connect      127.0.0.1
 // @connect      localhost

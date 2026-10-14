@@ -14,6 +14,7 @@ export function createFloatingButton() {
     const isChessCom = currentUrl.includes('chess.com/game/') ||
         currentUrl.includes('chess.com/games/') ||
         currentUrl.includes('chess.com/analysis/') ||
+        currentUrl.includes('chess.com/play/') ||
         currentUrl.includes('chess.com/live/');
 
     if (!isChessCom) return;
