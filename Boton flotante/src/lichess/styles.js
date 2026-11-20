@@ -19,6 +19,12 @@ export function injectStyles() {
         .local-analysis-point.is-active { stroke: white; stroke-width: 3; }
         .local-analysis-axis { fill: currentColor; font-size: 11px; opacity: .68; }
         #local-analysis-status { color: var(--c-font, inherit); font-size: 1.05em; font-weight: bold; line-height: 1.4; margin: .15em 0 .65em; padding: .45em 0; text-align: center; }
+        .study__analysis.local-analysis-host { background: var(--c-bg-box, #262421); border-radius: 6px; box-sizing: border-box; display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; justify-content: center !important; gap: 0.5em 2em !important; padding: 1em 1.2em 1.2em; width: 100%; }
+        .study__analysis.local-analysis-host > #local-analysis-chart-panel, .study__analysis.local-analysis-host > #local-analysis-status { flex: 1 0 100%; width: 100%; }
+        .study__analysis.local-analysis-host > button, .study__analysis.local-analysis-host > p { margin-top: 0.5em !important; }
+        .study__server-eval.local-analysis-host { box-sizing: border-box; cursor: default !important; height: auto !important; min-height: 0; padding: 1em 1.2em 1.2em; text-align: left; }
+        .study__server-eval.local-analysis-host > canvas.study__server-eval-canvas, .study__server-eval.local-analysis-host > #acpl-chart-container-loader { display: none !important; }
+        .analyse__round-training.local-analysis-training-host > .analyse__acpl { display: none !important; }
         #local-analysis-summary-panel { background: var(--c-bg-zebra, #262421); border-radius: 6px; margin-top: .5em; overflow: hidden; box-shadow: 0 2px 2px #00000014, 0 3px 1px -2px #0000002e, 0 1px 5px #0000001a; }
         .advice-summary.local-analysis-summary { background: var(--c-bg-box); display: grid; grid-template-columns: 1fr; margin: 0; padding: 0; }
         .advice-summary.local-analysis-summary .advice-summary__side { background: transparent; min-width: 0; padding: .55em .8em .75em; }
@@ -47,15 +53,15 @@ export function injectStyles() {
         move[data-local-analysis-type="blunder"].active, u8[data-local-analysis-type="blunder"].active { background-color: #fa412d !important; }
         move[data-local-analysis-type]:not(.active) san, u8[data-local-analysis-type]:not(.active) kw, move[data-local-analysis-type]:not(.active) .custom-move-glyph, u8[data-local-analysis-type]:not(.active) .custom-move-glyph { color: var(--local-move-color) !important; fill: var(--local-move-color) !important; }
         /* Ocultar glifos nativos del servidor de Lichess para evitar duplicación y superposición */
-        glyph:not(.custom-move-glyph),
-        move glyph:not(.custom-move-glyph),
-        u8 glyph:not(.custom-move-glyph),
-        .analyse__moves glyph:not(.custom-move-glyph),
-        .study__moves glyph:not(.custom-move-glyph),
-        .tview2 glyph:not(.custom-move-glyph),
-        rmoves glyph:not(.custom-move-glyph),
-        cg-board glyph,
-        .cg-wrap glyph:not(.local-board-glyph) {
+        body.has-local-stockfish-analysis glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis move glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis u8 glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis .analyse__moves glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis .study__moves glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis .tview2 glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis rmoves glyph:not(.custom-move-glyph),
+        body.has-local-stockfish-analysis cg-board glyph,
+        body.has-local-stockfish-analysis .cg-wrap glyph:not(.local-board-glyph) {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;

@@ -42,14 +42,22 @@ export function parseMetadata(comment) {
         evaluation: parseEval(evaluationText),
         rawEvaluation: evaluationText,
         type: typeMatch ? typeMatch[1].toUpperCase() : null,
+        hasLocalEval: Boolean(localEvalMatch),
     };
+}
+
+export function hasLocalAnalysis(data) {
+    if (!data) return false;
+    const hasAccuracyHeader = Object.keys(data.headers || {}).some((key) => /^(?:White|Black)EloAccuracy/i.test(key));
+    if (hasAccuracyHeader) return true;
+    return (data.moves || []).some((move) => Boolean(move.type || move.hasLocalEval));
 }
 
 export function appendMoveToken(rawToken, moves) {
     let token = rawToken.replace(/^\d+\.(?:\.\.)?/, '').replace(/^\.\.\./, '').trim();
     token = token.replace(/\$\d+$/, '').replace(/[!?]+$/, '');
     if (!token || /^(1-0|0-1|1\/2-1\/2|\*)$/.test(token) || !/^[a-hKQRBNO]/.test(token)) return;
-    moves.push({ san: token, evaluation: null, rawEvaluation: null, type: null });
+    moves.push({ san: token, evaluation: null, rawEvaluation: null, type: null, hasLocalEval: false });
 }
 
 export function parsePgn(pgn) {
@@ -64,7 +72,18 @@ export function parsePgn(pgn) {
         if (char === '{') {
             const end = body.indexOf('}', index + 1);
             const metadata = parseMetadata(body.slice(index + 1, end === -1 ? body.length : end));
-            if (variationDepth === 0 && lastMoveIndex >= 0 && metadata) Object.assign(moves[lastMoveIndex], metadata);
+            if (variationDepth === 0 && lastMoveIndex >= 0 && metadata) {
+                const targetMove = moves[lastMoveIndex];
+                if (metadata.type) targetMove.type = metadata.type;
+                if (metadata.hasLocalEval) {
+                    targetMove.evaluation = metadata.evaluation;
+                    targetMove.rawEvaluation = metadata.rawEvaluation;
+                    targetMove.hasLocalEval = true;
+                } else if (Number.isFinite(metadata.evaluation) && !targetMove.hasLocalEval && !Number.isFinite(targetMove.evaluation)) {
+                    targetMove.evaluation = metadata.evaluation;
+                    targetMove.rawEvaluation = metadata.rawEvaluation;
+                }
+            }
             index = end === -1 ? body.length : end + 1;
         } else if (char === '(') {
             variationDepth += 1;

@@ -1,7 +1,7 @@
 // Sincronización del DOM de Lichess, observador de movimientos y actualización de paneles
 
 import { state, runtime } from './state.js';
-import { parsePgn } from './parsers.js';
+import { parsePgn, hasLocalAnalysis } from './parsers.js';
 import {
     getMoveNodes,
     getMainlineMoveNodes,
@@ -20,9 +20,59 @@ setAfterMoveActivated(() => {
     syncBoardGlyph();
 });
 
+function getServerEvalContainer() {
+    const container = document.querySelector('.analyse__underboard .study__analysis, .analyse__underboard .study__server-eval, .study__analysis, .study__server-eval');
+    if (container) return container;
+    const legacy = document.querySelector('.study__message');
+    if (!legacy || legacy.closest('.study__glyphs, .study__comments')) return null;
+    const serverEvalTab = document.querySelector('button.serverEval');
+    if (serverEvalTab && !serverEvalTab.classList.contains('active')) return null;
+    return legacy;
+}
+
+function cleanupLocalAnalysisUi() {
+    document.body?.classList.remove('has-local-stockfish-analysis');
+    document.getElementById('local-analysis-chart-panel')?.remove();
+    document.getElementById('local-analysis-status')?.remove();
+    document.getElementById('local-analysis-summary-panel')?.remove();
+    document.querySelectorAll('.local-board-glyph').forEach((el) => el.remove());
+    document.querySelectorAll('.local-analysis-host').forEach((el) => el.classList.remove('local-analysis-host'));
+    document.querySelectorAll('.local-analysis-training-host').forEach((el) => el.classList.remove('local-analysis-training-host'));
+    getMoveNodes().forEach((node) => setMoveGlyph(node, null));
+    document.querySelectorAll('.local-analysis-native-hidden').forEach((glyph) => {
+        glyph.style.removeProperty('display');
+        glyph.classList.remove('local-analysis-native-hidden');
+    });
+}
+
+function renderSummaryPanel(data, fallbackContainer = null) {
+    const training = document.querySelector('.analyse__round-training');
+    let summaryPanel = document.getElementById('local-analysis-summary-panel');
+    if (!summaryPanel) {
+        summaryPanel = document.createElement('section');
+        summaryPanel.id = 'local-analysis-summary-panel';
+    }
+    summaryPanel.replaceChildren(createSummary(data));
+    if (training) {
+        training.classList.add('local-analysis-training-host');
+        training.appendChild(summaryPanel);
+    } else if (fallbackContainer) {
+        fallbackContainer.appendChild(summaryPanel);
+    }
+}
+
 export function renderPanel(data) {
-    const studyMessage = document.querySelector('.study__message');
-    if (!studyMessage) return false;
+    if (!hasLocalAnalysis(data)) {
+        cleanupLocalAnalysisUi();
+        return false;
+    }
+    document.body?.classList.add('has-local-stockfish-analysis');
+    renderSummaryPanel(data);
+
+    const container = getServerEvalContainer();
+    if (!container) return false;
+    container.classList.add('local-analysis-host');
+
     let chartPanel = document.getElementById('local-analysis-chart-panel');
     if (!chartPanel) {
         chartPanel = document.createElement('section');
@@ -41,22 +91,15 @@ export function renderPanel(data) {
     }
     status.innerHTML = '<br>Esta partida ya está analizada localmente con STOCKFISH.<br>No hace falta solicitar el análisis del ordenador indicado debajo.<br>';
 
-    studyMessage.prepend(chartPanel);
+    container.prepend(chartPanel);
     chartPanel.insertAdjacentElement('afterend', status);
 
-    const training = document.querySelector('.analyse__round-training');
-    let summaryPanel = document.getElementById('local-analysis-summary-panel');
-    if (!summaryPanel) {
-        summaryPanel = document.createElement('section');
-        summaryPanel.id = 'local-analysis-summary-panel';
-    }
-    summaryPanel.replaceChildren(createSummary(data));
-    if (training) training.appendChild(summaryPanel);
-    else chartPanel.appendChild(summaryPanel);
+    renderSummaryPanel(data, chartPanel);
     return true;
 }
 
 export function updateActivePoint() {
+    if (!state.data || !hasLocalAnalysis(state.data)) return;
     const activeIndex = getMainlineMoveNodes().find((item) => item.node.classList.contains('active') || item.node.classList.contains('a'))?.index;
     document.querySelectorAll('.local-analysis-point').forEach((point) => {
         point.classList.toggle('is-active', Number(point.dataset.moveIndex) === activeIndex);
@@ -108,6 +151,11 @@ export function setupBoardSync() {
 
 export function syncWithDom(attempt = 0) {
     if (!state.data) return;
+    if (!hasLocalAnalysis(state.data)) {
+        cleanupLocalAnalysisUi();
+        return;
+    }
+    document.body?.classList.add('has-local-stockfish-analysis');
     const nodes = getMoveNodes();
     if (!nodes.length) {
         if (attempt < 12) setTimeout(() => syncWithDom(attempt + 1), 500);
@@ -141,40 +189,38 @@ export function syncWithDom(attempt = 0) {
 }
 
 export function setupTabSync() {
+    const checkAndRender = () => {
+        if (!state.data || !hasLocalAnalysis(state.data)) return;
+        const container = getServerEvalContainer();
+        if (container && !container.querySelector('#local-analysis-chart-panel')) {
+            renderPanel(state.data);
+            updateActivePoint();
+        } else if (document.querySelector('.analyse__round-training') && !document.getElementById('local-analysis-summary-panel')) {
+            renderSummaryPanel(state.data);
+        }
+    };
+
     if (!runtime.tabClickListenerAttached && typeof document !== 'undefined') {
         runtime.tabClickListenerAttached = true;
         document.addEventListener('click', (e) => {
             if (e.target.closest('button.serverEval')) {
-                const checkAndRender = () => {
-                    const studyMessage = document.querySelector('.study__message');
-                    if (studyMessage && !studyMessage.querySelector('#local-analysis-chart-panel') && state.data) {
-                        renderPanel(state.data);
-                        updateActivePoint();
-                    }
-                };
                 setTimeout(checkAndRender, 50);
                 setTimeout(checkAndRender, 150);
             }
         });
     }
 
-    const underboard = document.querySelector('.analyse__underboard, .study__underboard, .analyse__side, .study__side')
-        || document.querySelector('.study__message')?.parentElement
+    const underboard = document.querySelector('.analyse__underboard, .study__underboard')
+        || getServerEvalContainer()?.parentElement
         || document.querySelector('.analyse');
     if (!underboard || underboard === runtime.observedUnderboard) return;
     runtime.underboardObserver?.disconnect();
     runtime.observedUnderboard = underboard;
-    runtime.underboardObserver = new MutationObserver(() => {
-        const studyMessage = document.querySelector('.study__message');
-        if (studyMessage && !studyMessage.querySelector('#local-analysis-chart-panel') && state.data) {
-            renderPanel(state.data);
-            updateActivePoint();
-        }
-    });
+    runtime.underboardObserver = new MutationObserver(checkAndRender);
     runtime.underboardObserver.observe(underboard, { childList: true, subtree: true });
 }
 
-export function performInitialActions(onDone) {
+export function performInitialActions(onDone, attempt = 0) {
     const closeButton = document.querySelector('button.close-button[aria-label="Cerrar"]');
     if (closeButton) {
         closeButton.click();
@@ -192,6 +238,8 @@ export function performInitialActions(onDone) {
         }
         runtime.actionsPerformed = true;
         if (onDone) onDone();
+    } else if (attempt < 15) {
+        setTimeout(() => performInitialActions(onDone, attempt + 1), 150);
     } else {
         if (onDone) onDone();
     }
@@ -199,18 +247,28 @@ export function performInitialActions(onDone) {
 
 export async function refresh() {
     const path = location.pathname;
+    const cleanPath = path.replace(/\/$/, '');
+    const segments = cleanPath.split('/').filter(Boolean);
+    const activeChapterId = document.querySelector('.study__chapters .active[data-id]')?.getAttribute('data-id');
+    const pgnPath = (segments.length === 2 && segments[0] === 'study' && activeChapterId)
+        ? `/study/${segments[1]}/${activeChapterId}`
+        : cleanPath;
+    state.path = path;
     try {
-        const url = `${location.origin}${path.replace(/\/$/, '')}.pgn`;
+        const url = `${location.origin}${pgnPath}.pgn`;
         const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/x-chess-pgn' } });
         if (!response.ok) throw new Error(`PGN no disponible (${response.status})`);
-        state.path = path;
         state.data = parsePgn(await response.text());
         state.statCycles.clear();
         runtime.actionsPerformed = false;
+        if (!hasLocalAnalysis(state.data)) {
+            cleanupLocalAnalysisUi();
+            return;
+        }
         performInitialActions(() => {
             syncWithDom();
         });
     } catch (error) {
-        // Ignorar error al cargar PGN del estudio
+        state.path = '';
     }
 }

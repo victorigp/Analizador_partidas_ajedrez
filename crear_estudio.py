@@ -189,52 +189,25 @@ def crear_estudio_desde_txt():
             print("[Aviso] Comprueba que tu LICHESS_TOKEN tiene el permiso 'study:write'.")
         return
     
-    # =========================================
-    # PASO 2: Obtener el ID del capitulo vacio
-    # =========================================
-    # La API de crear estudio genera automaticamente un capitulo vacio.
-    # Lo obtenemos accediendo a la pagina HTML del estudio, que contiene
-    # un JSON embebido con los chapters: [{"id":"XXXXXXXX","name":"Chapter 1"}]
-    chapter_id_vacio = None
-    if lichess_cookie:
-        try:
-            req_html = urllib.request.Request(
-                f'https://lichess.org/study/{study_id}',
-                headers={'Cookie': f'lila2={lichess_cookie}'}
-            )
-            html_resp = urllib.request.urlopen(req_html).read().decode('utf-8')
-            match = re.search(r'"chapters":\s*\[\{"id":"([^"]+)"', html_resp)
-            if match:
-                chapter_id_vacio = match.group(1)
-        except Exception:
-            pass
-    
     # ===================================
-    # PASO 3: Importar PGN con el analisis
+    # PASO 2: Importar PGN con el analisis
     # ===================================
+    # Se envian initial=true y sticky=true para que la API de Lichess reemplace
+    # automaticamente el capitulo vacio inicial y enfoque el capitulo importado.
     print("[Lichess] Importando PGN con analisis de IA...")
     try:
         _api_request(f'https://lichess.org/api/study/{study_id}/import-pgn', token, data={
             'name': f"{blancas} - {negras}",
             'pgn': pgn_ia,
-            'orientation': val_orientacion
+            'orientation': val_orientacion,
+            'initial': 'true',
+            'sticky': 'true'
         })
         print("[Ok] PGN importado correctamente.")
     except urllib.error.HTTPError as e:
         print(f"[Error] Fallo al importar PGN: {e.code}")
         print("Detalle:", e.read().decode('utf-8', errors='ignore'))
         return
-    
-    # ==========================================
-    # PASO 4: Borrar el capitulo vacio original
-    # ==========================================
-    if chapter_id_vacio:
-        print("[Lichess] Borrando capitulo vacio original...")
-        try:
-            _api_request(f'https://lichess.org/api/study/{study_id}/{chapter_id_vacio}', token, method='DELETE')
-            print("[Ok] Capitulo vacio eliminado.")
-        except urllib.error.HTTPError as e:
-            print(f"[Aviso] No se pudo borrar el capitulo vacio: {e.code}")
     
     study_url = f"https://lichess.org/study/{study_id}"
     if lichess_cookie:
