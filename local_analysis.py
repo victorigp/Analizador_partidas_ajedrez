@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import chess
 import chess.pgn
@@ -99,6 +100,48 @@ def analyze_pgn(pgn_string: str) -> str:
     explorer_timeout = float(os.getenv("OPENING_EXPLORER_TIMEOUT", "3"))
     explorer_cache = {}
     explorer_unavailable = False
+    detected_opening = None
+
+    def fetch_explorer_data(board_pos: chess.Board):
+        nonlocal explorer_unavailable, detected_opening
+        if explorer_unavailable or not explorer_enabled:
+            return [], 0, None
+
+        fen = " ".join(board_pos.fen().split(" ")[:4])
+        if fen not in explorer_cache:
+            query = urlencode({"fen": fen, "moves": 100})
+            try:
+                headers = {"Accept": "application/json"}
+                if explorer_token:
+                    headers["Authorization"] = f"Bearer {explorer_token}"
+                request = Request(f"{explorer_url}?{query}", headers=headers)
+                with urlopen(request, timeout=explorer_timeout) as response:
+                    payload = json.load(response)
+                    opening = payload.get("opening")
+                    explorer_cache[fen] = (
+                        payload.get("moves", []),
+                        payload.get("white", 0) + payload.get("draws", 0) + payload.get("black", 0),
+                        opening,
+                    )
+            except (HTTPError, URLError, OSError, ValueError):
+                explorer_cache[fen] = ([], 0, None)
+                explorer_unavailable = True
+
+        moves, total_games, opening = explorer_cache[fen]
+        if opening and opening.get("name"):
+            detected_opening = opening
+        return moves, total_games, opening
+
+    def extract_opening_from_ecourl(eco_url: str):
+        if not eco_url:
+            return None
+        clean_url = eco_url.replace("\\/", "/").strip()
+        match = re.search(r"/openings/([^/?#]+)", clean_url)
+        if not match:
+            return None
+        slug = re.sub(r"-\d+\..*$", "", match.group(1))
+        name = slug.replace("-", " ").strip()
+        return name or None
 
     def is_polyglot_move(board_before: chess.Board, candidate: chess.Move) -> bool:
         if book_reader is None:
@@ -109,29 +152,10 @@ def analyze_pgn(pgn_string: str) -> str:
             return False
 
     def is_explorer_move(board_before: chess.Board, candidate: chess.Move) -> bool:
-        nonlocal explorer_unavailable
         if explorer_unavailable or not explorer_enabled or len(board_before.move_stack) >= explorer_max_plies:
             return False
 
-        fen = " ".join(board_before.fen().split(" ")[:4])
-        if fen not in explorer_cache:
-            query = urlencode({"fen": fen, "moves": 100})
-            try:
-                headers = {"Accept": "application/json"}
-                if explorer_token:
-                    headers["Authorization"] = f"Bearer {explorer_token}"
-                request = Request(f"{explorer_url}?{query}", headers=headers)
-                with urlopen(request, timeout=explorer_timeout) as response:
-                    payload = json.load(response)
-                    explorer_cache[fen] = (
-                        payload.get("moves", []),
-                        payload.get("white", 0) + payload.get("draws", 0) + payload.get("black", 0),
-                    )
-            except (HTTPError, URLError, OSError, ValueError):
-                explorer_cache[fen] = ([], 0)
-                explorer_unavailable = True
-
-        moves, total_games = explorer_cache[fen]
+        moves, total_games, _ = fetch_explorer_data(board_before)
         if total_games == 0:
             return False
 
@@ -203,6 +227,7 @@ def analyze_pgn(pgn_string: str) -> str:
         return current
 
     current_phase = "Apertura"
+    last_book_board = None
 
     def print_timer():
         while not analysis_done:
@@ -287,7 +312,22 @@ def analyze_pgn(pgn_string: str) -> str:
             pass
 
         board.push(move)
+        if is_book_move:
+            last_book_board = board.copy()
         node = next_node
+
+    # Se consulta la apertura exacta en la ultima posicion de libro si el explorador esta activo.
+    if last_book_board is not None and explorer_enabled and not explorer_unavailable:
+        fetch_explorer_data(last_book_board)
+
+    opening_name = detected_opening.get("name") if detected_opening else None
+    opening_eco = detected_opening.get("eco") if detected_opening else None
+    if not opening_name:
+        opening_name = extract_opening_from_ecourl(game.headers.get("ECOUrl", ""))
+    if opening_name:
+        game.headers["Opening"] = opening_name
+    if opening_eco and not game.headers.get("ECO"):
+        game.headers["ECO"] = opening_eco
 
     analysis_done = True
     timer_thread.join()

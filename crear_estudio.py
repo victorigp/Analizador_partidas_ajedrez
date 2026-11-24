@@ -142,6 +142,14 @@ def crear_estudio_desde_txt():
     print(f"[Info] Nombre del estudio: {nombre_estudio}")
     print(f"[Info] Orientacion del tablero: {color_orientacion}")
     
+    # Se limpian escapes de barra (\/) en cabeceras PGN que rechaza el parser de Lichess
+    pgn_ia = re.sub(
+        r'^\[[^\n]+\]$',
+        lambda m: m.group(0).replace(r'\/', '/'),
+        pgn_ia,
+        flags=re.MULTILINE
+    )
+
     # Inyectar las precisiones en la cabecera Termination para no alterar los comentarios
     pgn_ia = re.sub(r'\[Annotator\s+"[^"]*Accuracy[^"]*"\]\n?', '', pgn_ia)
     accuracies = re.findall(r'\[(\w*Accuracy\w*)\s+"([^"]+)"\]', contenido)
@@ -196,13 +204,29 @@ def crear_estudio_desde_txt():
     # automaticamente el capitulo vacio inicial y enfoque el capitulo importado.
     print("[Lichess] Importando PGN con analisis de IA...")
     try:
-        _api_request(f'https://lichess.org/api/study/{study_id}/import-pgn', token, data={
+        resp_import = _api_request(f'https://lichess.org/api/study/{study_id}/import-pgn', token, data={
             'name': f"{blancas} - {negras}",
             'pgn': pgn_ia,
             'orientation': val_orientacion,
             'initial': 'true',
             'sticky': 'true'
         })
+        # Se valida el JSON de respuesta porque Lichess devuelve HTTP 200 aunque falle la importacion
+        import_body = resp_import.read().decode('utf-8', errors='ignore')
+        try:
+            import_json = json.loads(import_body) if import_body else {}
+        except ValueError:
+            import_json = {}
+
+        import_error = import_json.get('error')
+        chapters = import_json.get('chapters')
+        if import_error or (isinstance(chapters, list) and len(chapters) == 0):
+            detalle = import_error or "Lichess no devolvio ningun capitulo importado."
+            print(f"[Error] Lichess rechazo la importacion del PGN: {detalle}")
+            if import_body:
+                print(f"[Detalle] Respuesta API import-pgn: {import_body}")
+            return
+
         print("[Ok] PGN importado correctamente.")
     except urllib.error.HTTPError as e:
         print(f"[Error] Fallo al importar PGN: {e.code}")

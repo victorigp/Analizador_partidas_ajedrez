@@ -95,7 +95,8 @@ def extraer_pgn_api(url):
                 match_pgn = re.search(r"pgn:\s*'([^']+)'", html) or re.search(r'pgn:\s*"([^"]+)"', html)
                 if match_pgn:
                     try:
-                        raw_pgn = match_pgn.group(1).encode('utf-8').decode('unicode_escape')
+                        # Se desescapan barras JSON (\/) que decode('unicode_escape') deja intactas
+                        raw_pgn = match_pgn.group(1).encode('utf-8').decode('unicode_escape').replace(r'\/', '/')
                         if raw_pgn and '[Event' in raw_pgn:
                             return raw_pgn
                     except Exception:

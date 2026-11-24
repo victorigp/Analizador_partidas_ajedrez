@@ -112,6 +112,10 @@ def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     match_b = re.search(r'\[Black\s+"([^"]+)"\]', pgn_original)
     if match_b: black_name = match_b.group(1)
 
+    # Se extrae la apertura detectada en las cabeceras del PGN anotado o original
+    match_opening = re.search(r'\[Opening\s+"([^"]+)"\]', pgn_anotado) or re.search(r'\[Opening\s+"([^"]+)"\]', pgn_original)
+    opening_name = match_opening.group(1).strip() if match_opening else ""
+
     # Eliminar ELOs de pgn_anotado
     lineas_validas = []
     for linea in pgn_anotado.splitlines(True):
@@ -123,7 +127,16 @@ def analizar_pgn_con_ia(pgn_original, pgn_anotado, stats=None):
     pgn_anotado = re.sub(r'(\r?\n)([ \t]*(\r?\n))+', r'\n', pgn_anotado).strip()
     
     # Construir bloque de estadísticas
-    stats_texto = f"""
+    opening_texto = ""
+    if opening_name:
+        opening_texto = (
+            f"\nDetected Opening: {opening_name}.\n"
+            "You MUST mention this exact opening (translated naturally to Spanish) in the initial game summary "
+            "and when commenting on the opening / [#BOOK#] moves (especially on the final [#BOOK#] move). "
+            "Do NOT include the ECO code (e.g., '(ECO B07)' or 'B07') in the comments, only the opening name.\n"
+        )
+
+    stats_texto = f"""{opening_texto}
 In the initial match summary, indicate this as follows:
 {white_name} ELO partida: XXXX <line break>{black_name} ELO partida: YYYY <line break><line break>
 Calculate the match ELO based on the accuracy and the moves quality and replace the values of XXXX and YYYY.  
@@ -170,13 +183,14 @@ Output Format (STRICT REQUIREMENTS):
      * For [#MISTAKE#] or ?: The commentary must be clearly negative and critical. Point out the damage caused without sugarcoating it.
      * For [#INACCURACY#] or ?!: The tone should be cautionary and mildly critical, pointing out a misstep.
      * For [#GOOD#] or [#EXCELLENT#]: Make a normal, analytical comment explaining the move without being overly positive.
-     * For [#BEST#]: The commentary should be praising, noting that the player found the optimal continuation.
+     * For [#BEST#]: Convey solidly that the player chose the strongest continuation, varying your phrasing naturally. If the move is forced or the only legal response (especially in a losing or mating sequence), describe it naturally as forced without praising it as "óptima" or "precisa".
      * For [#GREAT#]: The commentary MUST be enthusiastic. Emphasize the strong tactical vision or positional understanding.
      * For [#BRILLIANT#]: The commentary MUST be extremely dramatic, eye-catching, and highly praising, clearly standing out as an absolutely superior move, far above a merely great one. Emphasize the extraordinary depth, creativity, or stunning tactical sacrifice.
      * For [#BOOK#]: Briefly mention that this is a known opening theoretical move.
 
    - MANDATORY Justification of Classification: For EVERY annotated move, you MUST explain WHY the move deserves that classification. Do not simply state that a move is bad; explain the concrete positional, tactical, or strategic reasons behind the evaluation. If the consequences of a move become apparent in the following moves, you MUST reference those subsequent developments to justify the classification.
    - CRITICAL for Negative Moves ([#INACCURACY#], [#MISTAKE#], [#BLUNDER#]): When analyzing moves belonging to {target_player} that are marked with negative tags, you must be CRITICAL, not encouraging. Scale the severity of your criticism to match the annotation.
+   - NATURAL STYLE & LEXICAL VARIETY (Anti-Repetition): Do NOT overuse or repeat evaluative adjectives associated with move quality across consecutive or nearby moves (such as "óptimo/óptima", "preciso/precisa", "excelente", "imprecisión", "catastrófico", "teórico"). Vary your Spanish vocabulary naturally and focus on explaining what the move achieves tactically or positionally rather than mechanically stamping a quality adjective onto every comment.
    IMPORTANT: Do not explicitly write the words "Blunder", "Mistake", "Brilliant", etc., inside the braces {{}}; instead, convey their meaning entirely through the emotional tone, critique, and justification of your Spanish explanation.
 
 - CRITICAL RESTRICTION - NO Mentioning Specific Squares, specific pieces not mentioned in the move or Unsolicited Alternative Moves: This is the MOST IMPORTANT RULE and must be followed with extreme precision. 
